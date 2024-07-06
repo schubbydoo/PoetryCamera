@@ -1,0 +1,19 @@
+# Virtual environment
+poetrycamera-env
+venv/
+ENV/
+env/
+.venv/
+
+# Python
+*.pyc
+__pycache__/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Misc
+*.log
+*.bak
