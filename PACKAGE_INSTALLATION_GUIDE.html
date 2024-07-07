@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Installation Guide for Poetry Camera Project</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 20px;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        pre {
+            background: #f4f4f4;
+            border: 1px solid #ddd;
+            padding: 10px;
+            overflow-x: auto;
+        }
+        .copy-button {
+            background: #007bff;
+            color: #fff;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+            margin-top: 5px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Installation Guide for Poetry Camera Project</h1>
+
+<p>This document provides a step-by-step guide to install the required libraries for the Poetry Camera project, including those that need to be installed outside of <code>pip</code>.</p>
+
+<h2>Step 1: Update System Packages</h2>
+<p>First, ensure that your system packages are up to date.</p>
+<pre><code>sudo apt-get update
+sudo apt-get upgrade</code></pre>
+<button class="copy-button" data-clipboard-target="pre:nth-of-type(1) code">Copy code</button>
+
+<h2>Step 2: Install System Dependencies</h2>
+<p>Some libraries need to be installed using the system package manager because they have dependencies that are not available via <code>pip</code>.</p>
+
+<h3>Install <code>cupshelpers</code></h3>
+<pre><code>sudo apt-get install python3-cupshelpers</code></pre>
+<button class="copy-button" data-clipboard-target="pre:nth-of-type(2) code">Copy code</button>
+
+<h3>Install <code>libsmbclient-dev</code> for <code>pysmbc</code></h3>
+<pre><code>sudo apt-get install libsmbclient-dev</code></pre>
+<button class="copy-button" data-clipboard-target="pre:nth-of-type(3) code">Copy code</button>
+
+<h3>Install <code>libcap-dev</code> for <code>python-prctl</code></h3>
+<pre><code>sudo apt-get install libcap-dev</code></pre>
+<button class="copy-button" data-clipboard-target="pre:nth-of-type(4) code">Copy code</button>
+
+<h3>Install <code>qtbase5-dev</code>, <code>qtchooser</code>, <code>qt5-qmake</code>, and <code>qtbase5-dev-tools</code> for <code>PyQt5</code></h3>
+<pre><code>sudo apt-get install qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools
+sudo apt-get install python3-pyqt5 python3-pyqt5.qtwebkit</code></pre>
+<button class="copy-button" data-clipboard-target="pre:nth-of-type(5) code">Copy code</button>
+
+<h3>Install Rust and Cargo for <code>wraptext</code></h3>
+<pre><code>curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env</code></pre>
+<button class="copy-button" data-clipboard-target="pre:nth-of-type(6) code">Copy code</button>
+
+<h2>Step 3: Set Up Python Virtual Environment</h2>
+<p>Create and activate a Python virtual environment to isolate your project dependencies.</p>
+<pre><code>cd ~/PoetryCamera
+python3 -m venv poetrycamera-env
+source poetrycamera-env/bin/activate</code></pre>
+<button class="copy-button" data-clipboard-target="pre:nth-of-type(7) code">Copy code</button>
+
+<h2>Step 4: Install Python Packages</h2>
+<p>Install the required Python packages using <code>pip</code> and the provided <code>requirements.txt</code> file.</p>
+<pre><code>pip install -r requirements.txt --break-system-packages</code></pre>
+<button class="copy-button" data-clipboard-target="pre:nth-of-type(8) code">Copy code</button>
+
+<h2>Step 5: Install Additional Python Packages Separately</h2>
+<p>If there were issues with any specific packages during the <code>pip install</code> step, install them separately:</p>
+<pre><code>pip install pysmbc --break-system-packages
+pip install python-prctl --break-system-packages
+pip install wraptext --break-system-packages</code></pre>
+<button class="copy-button" data-clipboard-target="pre:nth-of-type(9) code">Copy code</button>
+
+<h2>Step 6: Verify Installation</h2>
+<p>Ensure all packages are installed correctly by listing installed packages.</p>
+<pre><code>pip list</code></pre>
+<button class="copy-button" data-clipboard-target="pre:nth-of-type(10) code">Copy code</button>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.6/clipboard.min.js"></script>
+<script>
+    var clipboard = new ClipboardJS('.copy-button');
+    clipboard.on('success', function(e) {
+        e.trigger.textContent = 'Copied!';
+        setTimeout(function() {
+            e.trigger.textContent = 'Copy code';
+        }, 2000);
+    });
+</script>
+
+</body>
+</html>
