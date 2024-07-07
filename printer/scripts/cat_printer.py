@@ -1,0 +1,354 @@
+import asyncio
+import platform
+import time
+import os
+import tempfile
+import sys
+import traceback
+
+from bleak import BleakClient, BleakScanner
+from bleak.exc import BleakError
+import select
+
+import socket
+from io import BytesIO
+import PIL.Image
+import PIL.ImageDraw
+import PIL.ImageFont
+import PIL.ImageChops
+import re
+
+from flask import Flask, request, jsonify
+import threading
+
+class CatPrinter:
+    def __init__(self, printer_name='MX06', printer_mac='A7:09:08:1B:58:69'):
+        # Initialize the CatPrinter class with default printer name and MAC address.
+        # Set up various properties for managing the printer connection and queues for images and text.
+        self.printer_name = printer_name
+        self.printer_mac = printer_mac
+        self.device = None
+        self.transmit = True
+        self.ready = False
+        self.awaiting_status = False
+        self.status = {}
+        self.image_queue = []
+        self.text_queue = []
+        self.app = Flask(__name__)
+
+        # Setup Flask routes for handling HTTP requests.
+        self.setup_routes()
+
+        # Start Flask server in a new thread to handle incoming HTTP requests asynchronously.
+        threading.Thread(target=self.start_flask_server).start()
+
+        # Start the main async loop to handle BLE operations with the printer.
+        asyncio.run(self.main())
+
+    def setup_routes(self):
+        # Define HTTP routes for the Flask application.
+        @self.app.route("/", methods=['GET', 'POST'])
+        def http_server_upload():
+            # Handle POST requests to receive text and add to the printer queue.
+            # Handle GET requests to provide the printer status and settings.
+            if request.method == 'POST':
+                text = request.get_json().get("text")
+                print(text)
+                if text is not None:
+                    self.text_queue.append(text)
+                    return "Sent to printer queue"
+                else:
+                    return "Nothing :("
+            else:
+                return jsonify({
+                    "transmit": self.transmit,
+                    "ready": self.ready,
+                    "address": self.device.address if self.device else None,
+                    "status": self.status
+                })
+
+    def start_flask_server(self):
+        # Start the Flask server on port 5002 without using the reloader.
+        self.app.run(port=5002, use_reloader=False)
+
+    def crc8(self, data):
+        crc = 0
+        crc8_table = [
+            0x00, 0x07, 0x0e, 0x09, 0x1c, 0x1b, 0x12, 0x15, 0x38, 0x3f, 0x36, 0x31,
+            0x24, 0x23, 0x2a, 0x2d, 0x70, 0x77, 0x7e, 0x79, 0x6c, 0x6b, 0x62, 0x65,
+            0x48, 0x4f, 0x46, 0x41, 0x54, 0x53, 0x5a, 0x5d, 0xe0, 0xe7, 0xee, 0xe9,
+            0xfc, 0xfb, 0xf2, 0xf5, 0xd8, 0xdf, 0xd6, 0xd1, 0xc4, 0xc3, 0xca, 0xcd,
+            0x90, 0x97, 0x9e, 0x99, 0x8c, 0x8b, 0x82, 0x85, 0xa8, 0xaf, 0xa6, 0xa1,
+            0xb4, 0xb3, 0xba, 0xbd, 0xc7, 0xc0, 0xc9, 0xce, 0xdb, 0xdc, 0xd5, 0xd2,
+            0xff, 0xf8, 0xf1, 0xf6, 0xe3, 0xe4, 0xed, 0xea, 0xb7, 0xb0, 0xb9, 0xbe,
+            0xab, 0xac, 0xa5, 0xa2, 0x8f, 0x88, 0x81, 0x86, 0x93, 0x94, 0x9d, 0x9a,
+            0x27, 0x20, 0x29, 0x2e, 0x3b, 0x3c, 0x35, 0x32, 0x1f, 0x18, 0x11, 0x16,
+            0x03, 0x04, 0x0d, 0x0a, 0x57, 0x50, 0x59, 0x5e, 0x4b, 0x4c, 0x45, 0x42,
+            0x6f, 0x68, 0x61, 0x66, 0x73, 0x74, 0x7d, 0x7a, 0x89, 0x8e, 0x87, 0x80,
+            0x95, 0x92, 0x9b, 0x9c, 0xb1, 0xb6, 0xbf, 0xb8, 0xad, 0xaa, 0xa3, 0xa4,
+            0xf9, 0xfe, 0xf7, 0xf0, 0xe5, 0xe2, 0xeb, 0xec, 0xc1, 0xc6, 0xcf, 0xc8,
+            0xdd, 0xda, 0xd3, 0xd4, 0x69, 0x6e, 0x67, 0x60, 0x75, 0x72, 0x7b, 0x7c,
+            0x51, 0x56, 0x5f, 0x58, 0x4d, 0x4a, 0x43, 0x44, 0x19, 0x1e, 0x17, 0x10,
+            0x05, 0x02, 0x0b, 0x0c, 0x21, 0x26, 0x2f, 0x28, 0x3d, 0x3a, 0x33, 0x34,
+            0x4e, 0x49, 0x40, 0x47, 0x52, 0x55, 0x5c, 0x5b, 0x76, 0x71, 0x78, 0x7f,
+            0x6a, 0x6d, 0x64, 0x63, 0x3e, 0x39, 0x30, 0x37, 0x22, 0x25, 0x2c, 0x2b,
+            0x06, 0x01, 0x08, 0x0f, 0x1a, 0x1d, 0x14, 0x13, 0xae, 0xa9, 0xa0, 0xa7,
+            0xb2, 0xb5, 0xbc, 0xbb, 0x96, 0x91, 0x98, 0x9f, 0x8a, 0x8d, 0x84, 0x83,
+            0xde, 0xd9, 0xd0, 0xd7, 0xc2, 0xc5, 0xcc, 0xcb, 0xe6, 0xe1, 0xe8, 0xef,
+            0xfa, 0xfd, 0xf4, 0xf3
+        ]
+        if len(crc8_table) != 256:
+            raise ValueError("CRC8 table must contain 256 values.")
+        for byte in data:
+            crc = crc8_table[(crc ^ byte) & 0xFF]
+        return crc & 0xFF
+
+    def formatMessage(self, command, data):
+        # Format a message to send to the printer, including the command, data, and CRC8 checksum.
+        data = [0x51, 0x78] + [command] + [0x00] + [len(data)] + [0x00] + data + [self.crc8(data)] + [0xFF]
+        return bytes(data)
+
+    async def connect_and_send(self):
+        # Continuously try to connect to the printer and send queued images and text.
+        while True:
+            try:
+                print("connecting printer")
+                scanner = BleakScanner(detection_callback=self.detect_printer)
+                await scanner.start()
+                for _ in range(50):
+                    await asyncio.sleep(0.1)
+                    if self.device:
+                        break
+                await scanner.stop()
+
+                if not self.device:
+                    raise BleakError(f"No device named {self.printer_name} or MAC {self.printer_mac} could be found.")
+                async with BleakClient(self.device) as client:
+                    await client.start_notify(self.NotifyCharacteristic, self.notification_handler)
+                    print("printer ready")
+                    while True:
+                        while not self.ready and not self.awaiting_status:
+                            self.awaiting_status = True
+                            await client.write_gatt_char(self.PrinterCharacteristic, self.formatMessage(self.GetDevState, [0x00]) + self.formatMessage(self.ControlLattice, self.FinishLattice))
+                            await asyncio.sleep(0.5)
+                        if self.text_queue:
+                            text = self.text_queue.pop(0)
+                            if text:
+                                self.image_queue.append(self.drawTestPattern(None, -80))
+                                self.image_queue.append(self.drawTestPattern(self.create_text(text), 0, 17000))
+                                self.image_queue.append(self.drawTestPattern(None, 100))
+
+                        if self.image_queue:
+                            data = self.image_queue.pop(0)
+                            while data:
+                                await client.write_gatt_char(self.PrinterCharacteristic, bytes(data[:self.PacketLength]))
+                                data = data[self.PacketLength:]
+                                while not self.transmit and data:
+                                    await asyncio.sleep(0)
+                                await asyncio.sleep(0.002)
+                            await asyncio.sleep(0.01)
+            except:
+                self.ready = False
+                traceback.print_exc(file=sys.stdout)
+
+    def drawTestPattern(self, image_data, feed_amount=0, energy=0x2EE0):
+        # Prepare a test pattern or image data for printing, including paper feed commands.
+        cmdqueue = []
+        cmdqueue += self.formatMessage(self.GetDevState, [0x00])
+        cmdqueue += self.formatMessage(self.SetQuality, [0x33])
+        cmdqueue += self.formatMessage(self.ControlLattice, self.PrintLattice)
+        cmdqueue += self.formatMessage(self.SetEnergy, [energy.to_bytes(2, 'little')[0], energy.to_bytes(2, 'little')[1]])
+        cmdqueue += self.formatMessage(self.DrawingMode, [0])
+        cmdqueue += self.formatMessage(self.OtherFeedPaper, self.ImgPrintSpeed)
+        if image_data:
+            if type(image_data) != PIL.Image.Image:
+                image_data = BytesIO(image_data)
+                image = PIL.Image.open(image_data)
+                try:
+                    new_image = PIL.Image.new("RGBA", image.size, "WHITE")
+                    new_image.paste(image, (0, 0), image)
+                    image = new_image
+                except:
+                    pass
+            else:
+                image = image_data
+            if image.width > self.PrinterWidth:
+                height = int(image.height * (self.PrinterWidth / image.width))
+                image = image.resize((self.PrinterWidth, height))
+            image = image.convert("1")
+            if image.width < self.PrinterWidth:
+                padded_image = PIL.Image.new("1", (self.PrinterWidth, image.height), 1)
+                padded_image.paste(image)
+                image = padded_image
+                image = image.rotate(180)
+                for y in range(0, image.height):
+                    bmp = []
+                    bit = 0
+                    for x in range(0, image.width):
+                        if bit % 8 == 0:
+                            bmp += [0x00]
+                        bmp[int(bit / 8)] >>= 1
+                        if not image.getpixel((x, y)):
+                            bmp[int(bit / 8)] |= 0x80
+                        else:
+                            bmp[int(bit / 8)] |= 0
+                        bit += 1
+                    cmdqueue += self.formatMessage(self.DrawBitmap, bmp)
+        cmdqueue += self.formatMessage(self.OtherFeedPaper, self.BlankSpeed)
+        if feed_amount > 0:
+            cmdqueue += self.formatMessage(self.FeedPaper, [feed_amount.to_bytes(2, 'little')[0], feed_amount.to_bytes(2, 'little')[1]])
+        else:
+            feed_amount = abs(feed_amount)
+            cmdqueue += self.formatMessage(self.RetractPaper, [feed_amount.to_bytes(2, 'little')[0], feed_amount.to_bytes(2, 'little')[1]])
+        return cmdqueue
+
+    def create_text(self, text, font_name="/home/shschubert/PoetryCamera/fonts/MarckScript-Regular.ttf", font_size=40):
+        # Create an image from text using specified font settings.
+        img = PIL.Image.new('RGB', (self.PrinterWidth, 5000), color=(255, 255, 255))
+        font = PIL.ImageFont.truetype(font_name, font_size)
+        d = PIL.ImageDraw.Draw(img)
+        lines = []
+        for line in text.splitlines():
+            lines.append(self.get_wrapped_text(line, font, self.PrinterWidth))
+        lines = "\n".join(lines)
+        d.text((0, 0), lines, fill=(0, 0, 0), font=font)
+        return self.trim(img)
+
+    def get_wrapped_text(self, text: str, font: PIL.ImageFont.ImageFont, line_length: int):
+        # Wrap text to fit within the specified line length, considering the font size.
+        if font.getlength(text) <= line_length:
+            return text
+        lines = ['']
+        for word in text.split():
+            line = f'{lines[-1]} {word}'.strip()
+            if font.getlength(line) <= line_length:
+                lines[-1] = line
+            else:
+                lines.append(word)
+        return '\n'.join(lines)
+
+    def trim(self, im):
+        # Trim the image to remove any excess white space around the text.
+        bg = PIL.Image.new(im.mode, im.size, (255, 255, 255))
+        diff = PIL.ImageChops.difference(im, bg)
+        diff = PIL.ImageChops.add(diff, diff, 2.0)
+        bbox = diff.getbbox()
+        if bbox:
+            return im.crop((bbox[0], bbox[1], bbox[2], bbox[3] + 10))
+
+    async def main(self):
+        # Main asynchronous function to handle server and printer operations concurrently.
+        await asyncio.gather(
+            self.run_server(),
+            self.connect_and_send(),
+            self.get_status()
+        )
+
+    async def run_server(self):
+        # Run a TCP server to handle incoming print jobs.
+        print("server starting")
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server.bind(('localhost', 9101))
+        server.listen(8)
+        server.setblocking(False)
+
+        print("server ready")
+        while True:
+            client, _ = await asyncio.get_event_loop().sock_accept(server)
+            asyncio.create_task(self.handle_client(client))
+
+    async def handle_client(self, client):
+        # Handle incoming connections and process print jobs.
+        print("client connected")
+        client.settimeout(2)
+        ps = b''
+        while True:
+            try:
+                ready_to_read, ready_to_write, in_error = \
+                    select.select([client, ], [client, ], [], 5)
+            except select.error:
+                client.shutdown(2)
+                client.close
+                print('connection closed')
+                break
+            new_data = await asyncio.get_event_loop().sock_recv(client, 1024)
+            if b"%!PS" in new_data:
+                new_data = b"%!PS" + new_data.split(b"%!PS")[-1]
+            ps += new_data
+            if new_data:
+                print("received some bytes on the socket")
+            else:
+                client.shutdown(2)
+                client.close()
+                print('empty receive')
+                break
+        if b"%%BoundingBox" not in ps:
+            ps = ps.replace(b"\n", b"\n%%BoundingBox: 0 0 595 842\n", 1)
+        ps = re.sub(b"\x1b.*?\x0a", b"", ps)
+        ps = re.sub(b"@PJL.*?\x0a", b"", ps)
+        ps = re.sub(b"\x1b.*?$", b"", ps)
+        print("adding job to queue")
+        self.image_queue.append(self.drawTestPattern(ps))
+
+    async def get_status(self):
+        # Periodically check the printer status and update the status queue.
+        while True:
+            await asyncio.sleep(5)
+            print("getting status")
+            self.image_queue.append(self.formatMessage(self.GetDevState, [0x00]) + self.formatMessage(self.ControlLattice, self.FinishLattice))
+
+    def detect_printer(self, detected, advertisement_data):
+        # Detect printers based on the specified name or MAC address.
+        if detected.name == self.printer_name or detected.address == self.printer_mac:
+            self.device = detected
+
+    def notification_handler(self, sender, data):
+        # Handle notifications from the printer, updating the transmit status and printer status.
+        print("received notification")
+        print("{0}: [ {1} ]".format(sender, " ".join("{:02X}".format(x) for x in data)))
+        if tuple(data) == self.XOff:
+            print("Pausing transmission.")
+            self.transmit = False
+            return
+        if tuple(data) == self.XOn:
+            print("Resuming transmission.")
+            self.transmit = True
+            return
+        if data[2] == self.GetDevState:
+            self.awaiting_status = False
+            print("printer status byte: {:08b}".format(data[6]))
+            self.status = {
+                "no_paper": True if data[6] & 0b00000001 else False,
+                "cover_open": True if data[6] & 0b00000010 else False,
+                "over_temp": True if data[6] & 0b00000100 else False,
+                "battery_low": True if data[6] & 0b00001000 else False,
+            }
+            self.ready = data[6] == 0b00000000
+
+    # Commands
+    RetractPaper = 0xA0
+    FeedPaper = 0xA1
+    DrawBitmap = 0xA2
+    GetDevState = 0xA3
+    ControlLattice = 0xA6
+    GetDevInfo = 0xA8
+    OtherFeedPaper = 0xBD
+    DrawingMode = 0xBE
+    SetEnergy = 0xAF
+    SetQuality = 0xA4
+
+    PrintLattice = [0xAA, 0x55, 0x17, 0x38, 0x44, 0x5F, 0x5F, 0x5F, 0x44, 0x38, 0x2C]
+    FinishLattice = [0xAA, 0x55, 0x17, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x17]
+    XOff = (0x51, 0x78, 0xAE, 0x01, 0x01, 0x00, 0x10, 0x70, 0xFF)
+    XOn = (0x51, 0x78, 0xAE, 0x01, 0x01, 0x00, 0x00, 0x00, 0xFF)
+
+    PrinterWidth = 384
+    ImgPrintSpeed = [0x19]
+    BlankSpeed = [0x05]
+
+    PacketLength = 100
+    PrinterCharacteristic = "0000AE01-0000-1000-8000-00805F9B34FB"
+    NotifyCharacteristic = "0000AE02-0000-1000-8000-00805F9B34FB"
+
+if __name__ == "__main__":
+    CatPrinter()
