@@ -110,3 +110,6 @@ cython_debug/
 
 # VSCode
 .vscode/
+
+# Ignore all files with .old extension
+*.old
