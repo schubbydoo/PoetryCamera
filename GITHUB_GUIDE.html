@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Updates Summary</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        h2 {
+            color: #555;
+            margin-top: 20px;
+        }
+        pre {
+            position: relative;
+            background: #f4f4f4;
+            padding: 10px;
+            border: 1px solid #ddd;
+            overflow: auto;
+        }
+        button {
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            padding: 5px 10px;
+            background: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>GitHub Updates Summary</h1>
+
+    <h2>Initial Setup</h2>
+    <p><b>Step 1: Clone Repository</b></p>
+    <pre>
+        <button onclick="copyToClipboard('git clone https://github.com/yourusername/yourrepository.git\ncd yourrepository')">Copy code</button>
+        <code>git clone https://github.com/yourusername/yourrepository.git<br>cd yourrepository</code>
+    </pre>
+    <p><b>Step 2: Configure Git</b></p>
+    <pre>
+        <button onclick="copyToClipboard('git config --global user.name \"Your Name\"\ngit config --global user.email \"your.email@example.com\"')">Copy code</button>
+        <code>git config --global user.name "Your Name"<br>git config --global user.email "your.email@example.com"</code>
+    </pre>
+
+    <h2>Making Changes</h2>
+    <p><b>Step 1: Check Status</b></p>
+    <pre>
+        <button onclick="copyToClipboard('git status')">Copy code</button>
+        <code>git status</code>
+    </pre>
+    <p><b>Step 2: Add Changes</b></p>
+    <pre>
+        <button onclick="copyToClipboard('git add .')">Copy code</button>
+        <code>git add .</code>
+    </pre>
+    <p><b>Step 3: Commit Changes</b></p>
+    <pre>
+        <button onclick="copyToClipboard('git commit -m \"Describe your changes here\"')">Copy code</button>
+        <code>git commit -m "Describe your changes here"</code>
+    </pre>
+
+    <h2>Synchronizing with Remote</h2>
+    <p><b>Step 1: Pull Latest Changes</b></p>
+    <pre>
+        <button onclick="copyToClipboard('git pull origin main')">Copy code</button>
+        <code>git pull origin main</code>
+    </pre>
+    <p><b>Step 2: Push Changes</b></p>
+    <pre>
+        <button onclick="copyToClipboard('git push origin main')">Copy code</button>
+        <code>git push origin main</code>
+    </pre>
+
+    <h2>Handling Branches</h2>
+    <p><b>Step 1: Create a New Branch</b></p>
+    <pre>
+        <button onclick="copyToClipboard('git checkout -b new-branch-name')">Copy code</button>
+        <code>git checkout -b new-branch-name</code>
+    </pre>
+    <p><b>Step 2: Switch Branch</b></p>
+    <pre>
+        <button onclick="copyToClipboard('git checkout branch-name')">Copy code</button>
+        <code>git checkout branch-name</code>
+    </pre>
+    <p><b>Step 3: Merge Branch</b></p>
+    <pre>
+        <button onclick="copyToClipboard('git checkout main\ngit pull origin main\ngit merge branch-name')">Copy code</button>
+        <code>git checkout main<br>git pull origin main<br>git merge branch-name</code>
+    </pre>
+
+    <h2>Resolving Conflicts</h2>
+    <p><b>Step 1: Edit Conflicted Files</b></p>
+    <p>Open the conflicted files in an editor and resolve the conflicts.</p>
+    <p><b>Step 2: Add and Commit Resolved Files</b></p>
+    <pre>
+        <button onclick="copyToClipboard('git add .\ngit commit -m \"Resolved merge conflict\"')">Copy code</button>
+        <code>git add .<br>git commit -m "Resolved merge conflict"</code>
+    </pre>
+
+    <h2>Example Workflow</h2>
+    <pre>
+        <button onclick="copyToClipboard('cd /home/shschubert/PoetryCamera\ngit status\ngit add .\ngit commit -m \"Updated startup script and added debug logging\"\ngit pull origin main\ngit push origin main')">Copy code</button>
+        <code>cd /home/shschubert/PoetryCamera<br>git status<br>git add .<br>git commit -m "Updated startup script and added debug logging"<br>git pull origin main<br>git push origin main</code>
+    </pre>
+
+    <script>
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            alert('Copied to clipboard!');
+        }
+    </script>
+</body>
+</html>
