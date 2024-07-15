@@ -24,7 +24,6 @@ charset-normalizer
 click
 colorzero
 dbus-fast
-dbus-python
 decorator
 defusedxml
 distro
@@ -34,6 +33,7 @@ executing
 fastjsonschema
 Flask
 gpiozero
+gunicorn
 h11
 httpcore
 httpx

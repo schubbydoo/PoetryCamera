@@ -45,48 +45,64 @@ sudo apt-get upgrade</code></pre>
 <h2>Step 2: Install System Dependencies</h2>
 <p>Some libraries need to be installed using the system package manager because they have dependencies that are not available via <code>pip</code>.</p>
 
-<h3>Install <code>cupshelpers</code></h3>
-<pre><code>sudo apt-get install python3-cupshelpers</code></pre>
+<h3>Install Dependencies for Various Packages</h3>
+<pre><code>sudo apt-get install python3-cupshelpers
+sudo apt-get install libsmbclient-dev
+sudo apt-get install libcap-dev
+sudo apt-get install qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools python3-pyqt5 python3-pyqt5.qtwebkit
+sudo apt-get install libdbus-1-dev libdbus-glib-1-dev
+sudo apt-get install libcairo2-dev
+sudo apt-get install libgirepository1.0-dev pkg-config
+sudo apt-get install libcamera-dev libcamera-apps
+sudo apt-get install python3-picamera2</code></pre>
 <button class="copy-button" data-clipboard-target="pre:nth-of-type(2) code">Copy code</button>
-
-<h3>Install <code>libsmbclient-dev</code> for <code>pysmbc</code></h3>
-<pre><code>sudo apt-get install libsmbclient-dev</code></pre>
-<button class="copy-button" data-clipboard-target="pre:nth-of-type(3) code">Copy code</button>
-
-<h3>Install <code>libcap-dev</code> for <code>python-prctl</code></h3>
-<pre><code>sudo apt-get install libcap-dev</code></pre>
-<button class="copy-button" data-clipboard-target="pre:nth-of-type(4) code">Copy code</button>
-
-<h3>Install <code>qtbase5-dev</code>, <code>qtchooser</code>, <code>qt5-qmake</code>, and <code>qtbase5-dev-tools</code> for <code>PyQt5</code></h3>
-<pre><code>sudo apt-get install qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools
-sudo apt-get install python3-pyqt5 python3-pyqt5.qtwebkit</code></pre>
-<button class="copy-button" data-clipboard-target="pre:nth-of-type(5) code">Copy code</button>
 
 <h3>Install Rust and Cargo for <code>wraptext</code></h3>
 <pre><code>curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source $HOME/.cargo/env</code></pre>
-<button class="copy-button" data-clipboard-target="pre:nth-of-type(6) code">Copy code</button>
+<button class="copy-button" data-clipboard-target="pre:nth-of-type(3) code">Copy code</button>
 
 <h2>Step 3: Set Up Python Virtual Environment</h2>
 <p>Create and activate a Python virtual environment to isolate your project dependencies.</p>
 <pre><code>cd ~/PoetryCamera
 python3 -m venv poetrycamera-env
 source poetrycamera-env/bin/activate</code></pre>
-<button class="copy-button" data-clipboard-target="pre:nth-of-type(7) code">Copy code</button>
+<button class="copy-button" data-clipboard-target="pre:nth-of-type(4) code">Copy code</button>
 
 <h2>Step 4: Install Python Packages</h2>
 <p>Install the required Python packages using <code>pip</code> and the provided <code>requirements.txt</code> file.</p>
 <pre><code>pip install -r requirements.txt --break-system-packages</code></pre>
-<button class="copy-button" data-clipboard-target="pre:nth-of-type(8) code">Copy code</button>
+<button class="copy-button" data-clipboard-target="pre:nth-of-type(5) code">Copy code</button>
 
-<h2>Step 5: Install Additional Python Packages Separately</h2>
+<h3>Installing wraptext with increased buffer size</h3>
+<p>When installing <code>wraptext</code>, increase the buffer size:</p>
+<pre><code>export PIP_MAX_RETRIES=5
+export PIP_TIMEOUT=100
+pip install wraptext --break-system-packages</code></pre>
+<button class="copy-button" data-clipboard-target="pre:nth-of-type(6) code">Copy code</button>
+
+<h3>Install with More Verbose Output if Errors Occur</h3>
+<p>Install wraptext with verbose output to see more details about the build process:</p>
+<pre><code>pip install --verbose wraptext --break-system-packages</code></pre>
+<button class="copy-button" data-clipboard-target="pre:nth-of-type(7) code">Copy code</button>
+
+<h3>Install Additional Python Packages Separately</h3>
 <p>If there were issues with any specific packages during the <code>pip install</code> step, install them separately:</p>
 <pre><code>pip install pysmbc --break-system-packages
 pip install python-prctl --break-system-packages
-pip install wraptext --break-system-packages</code></pre>
+pip install wraptext --break-system-packages
+pip install pycups --break-system-packages
+pip install dbus-python --break-system-packages
+pip install pycairo --break-system-packages
+pip install PyGObject --break-system-packages</code></pre>
+<button class="copy-button" data-clipboard-target="pre:nth-of-type(8) code">Copy code</button>
+
+<h3>Set PYTHONPATH for picamera2</h3>
+<p>Set the <code>PYTHONPATH</code> environment variable to include the system-wide libcamera installation. This can be done by adding the following line to your <code>startup.sh</code> script:</p>
+<pre><code>export PYTHONPATH=/usr/lib/python3/dist-packages:$PYTHONPATH</code></pre>
 <button class="copy-button" data-clipboard-target="pre:nth-of-type(9) code">Copy code</button>
 
-<h2>Step 6: Verify Installation</h2>
+<h2>Step 5: Verify Installation</h2>
 <p>Ensure all packages are installed correctly by listing installed packages.</p>
 <pre><code>pip list</code></pre>
 <button class="copy-button" data-clipboard-target="pre:nth-of-type(10) code">Copy code</button>

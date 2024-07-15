@@ -352,7 +352,7 @@ def on_release():
         else:
             print("ignoring double click while poem is printing")
     elif duration > 9:  # if user held button
-        shutdown()
+        run_ap_activate()
 
 
 ################################
@@ -452,6 +452,12 @@ def shutdown():
     print("Shutting down the system...")
     os.system("sudo shutdown now")  # Example command to shutdown the system
 
+####### Start Wifi Settings change after >9 second button push ###
+def run_ap_activate():
+    try:
+        subprocess.run(["python3", "/home/shschubert/PoetryCamera/network-setup/ap_activate.py"], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to run ap_activate.py: {e}")
 
 # Main function
 if __name__ == "__main__":
