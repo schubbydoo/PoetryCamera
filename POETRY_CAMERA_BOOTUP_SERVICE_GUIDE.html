@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poetry Camera Service Setup</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+        }
+        pre {
+            background: #f4f4f4;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+            position: relative;
+        }
+        .code-block {
+            margin-bottom: 20px;
+        }
+        .copy-button {
+            margin-top: 10px;
+            padding: 5px 10px;
+            background: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .copy-button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>Poetry Camera Service Setup</h1>
+    <p>Follow these steps to create and manage the <code>poetrycamera.service</code> for the Poetry Camera application.</p>
+
+    <h2>1. Create the <code>poetrycamera.service</code> File</h2>
+    <div class="code-block">
+        <pre><code>sudo nano /etc/systemd/system/poetrycamera.service</code></pre>
+        <button class="copy-button" onclick="copyCode(this)">Copy code</button>
+    </div>
+
+    <p>Add the following service configuration:</p>
+    <div class="code-block">
+        <pre><code>[Unit]
+Description=Poetry Camera Service
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/home/pi/PoetryCamera/startup.sh
+User=pi
+Group=pi
+RemainAfterExit=true
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target</code></pre>
+        <button class="copy-button" onclick="copyCode(this)">Copy code</button>
+    </div>
+
+    <h2>2. Reload Systemd to Apply the New Service</h2>
+    <div class="code-block">
+        <pre><code>sudo systemctl daemon-reload</code></pre>
+        <button class="copy-button" onclick="copyCode(this)">Copy code</button>
+    </div>
+
+    <h2>3. Enable the Service to Start on Boot</h2>
+    <div class="code-block">
+        <pre><code>sudo systemctl enable poetrycamera.service</code></pre>
+        <button class="copy-button" onclick="copyCode(this)">Copy code</button>
+    </div>
+
+    <h2>4. Start the Service Manually (Optional for Testing)</h2>
+    <div class="code-block">
+        <pre><code>sudo systemctl start poetrycamera.service</code></pre>
+        <button class="copy-button" onclick="copyCode(this)">Copy code</button>
+    </div>
+
+    <h2>5. Check the Status of the Service</h2>
+    <div class="code-block">
+        <pre><code>sudo systemctl status poetrycamera.service</code></pre>
+        <button class="copy-button" onclick="copyCode(this)">Copy code</button>
+    </div>
+
+    <h2>6. View Logs for the Service (Optional)</h2>
+    <div class="code-block">
+        <pre><code>journalctl -u poetrycamera.service -f</code></pre>
+        <button class="copy-button" onclick="copyCode(this)">Copy code</button>
+    </div>
+
+    <h2>7. Stopping the Service (Optional)</h2>
+    <div class="code-block">
+        <pre><code>sudo systemctl stop poetrycamera.service</code></pre>
+        <button class="copy-button" onclick="copyCode(this)">Copy code</button>
+    </div>
+
+    <h2>8. Disable the Service (Optional, if you don’t want it to run on boot)</h2>
+    <div class="code-block">
+        <pre><code>sudo systemctl disable poetrycamera.service</code></pre>
+        <button class="copy-button" onclick="copyCode(this)">Copy code</button>
+    </div>
+
+    <script>
+        function copyCode(button) {
+            const code = button.previousElementSibling.innerText;
+            navigator.clipboard.writeText(code).then(() => {
+                button.innerText = 'Copied!';
+                setTimeout(() => {
+                    button.innerText = 'Copy code';
+                }, 2000);
+            });
+        }
+    </script>
+</body>
+</html>

@@ -20,6 +20,12 @@ import re
 
 from flask import Flask, request, jsonify
 import threading
+import logging
+from datetime import datetime
+
+logging.basicConfig(level=logging.INFO)
+
+app = Flask(__name__)
 
 class CatPrinter:
     def __init__(self, printer_name='MX06', printer_mac='A7:09:08:1B:58:69'):
@@ -55,6 +61,16 @@ class CatPrinter:
                 text = request.get_json().get("text")
                 print(text)
                 if text is not None:
+                    # Get the current date
+                    current_date = datetime.now().strftime("%B %d, %Y")
+                    # Create the footer text
+                    footer_text = f"\n\nWritten by The Poeteer, {current_date}"
+                    # Append the footer text to the main text
+                    full_text = text + footer_text
+
+                    # Log the full text for verification
+                    logging.info(f"Full text with footer: {full_text}")
+
                     self.text_queue.append(text)
                     return "Sent to printer queue"
                 else:
@@ -109,10 +125,12 @@ class CatPrinter:
         return bytes(data)
 
     async def connect_and_send(self):
+        retry_count = 0  # Initialize retry_count
+        
         # Continuously try to connect to the printer and send queued images and text.
         while True:
             try:
-                print("connecting printer")
+                logging.info("Attempting to connect to the printer")
                 scanner = BleakScanner(detection_callback=self.detect_printer)
                 await scanner.start()
                 for _ in range(50):
@@ -125,9 +143,10 @@ class CatPrinter:
                     raise BleakError(f"No device named {self.printer_name} or MAC {self.printer_mac} could be found.")
                 async with BleakClient(self.device) as client:
                     await client.start_notify(self.NotifyCharacteristic, self.notification_handler)
-                    print("printer ready")
+                    logging.info("Printer ready")
                     while True:
                         while not self.ready and not self.awaiting_status:
+                            logging.debug("Awaiting printer status")
                             self.awaiting_status = True
                             await client.write_gatt_char(self.PrinterCharacteristic, self.formatMessage(self.GetDevState, [0x00]) + self.formatMessage(self.ControlLattice, self.FinishLattice))
                             await asyncio.sleep(0.5)
@@ -144,12 +163,20 @@ class CatPrinter:
                                 await client.write_gatt_char(self.PrinterCharacteristic, bytes(data[:self.PacketLength]))
                                 data = data[self.PacketLength:]
                                 while not self.transmit and data:
-                                    await asyncio.sleep(0)
-                                await asyncio.sleep(0.002)
-                            await asyncio.sleep(0.01)
-            except:
+                                    await asyncio.sleep(0.01)
+                                await asyncio.sleep(0.01)
+                            await asyncio.sleep(0.05)
+                        else:
+                            logging.debug("Idle state - no data to print")
+                            await asyncio.sleep(1)  # Increase idle sleep time
+
+                retry_count = 0  # Reset retry_count on successful connection
+
+            except Exception as e:
                 self.ready = False
+                logging.error(f"Exception in connect_and_send: {e}")
                 traceback.print_exc(file=sys.stdout)
+                await asyncio.sleep(min(5 * retry_count, 60))  # Exponential backoff up to 60 seconds
 
     def drawTestPattern(self, image_data, feed_amount=0, energy=0x2EE0):
         # Prepare a test pattern or image data for printing, including paper feed commands.
@@ -351,4 +378,5 @@ class CatPrinter:
     NotifyCharacteristic = "0000AE02-0000-1000-8000-00805F9B34FB"
 
 if __name__ == "__main__":
-    CatPrinter()
+    printer = CatPrinter()
+    asyncio.run(printer.main())

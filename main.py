@@ -11,7 +11,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 from openai import OpenAI
 from time import time, sleep
-from printer.scripts.cat_printer import CatPrinter
+from printer.scripts.cat_printer import CatPrinter, app
 import logging
 import asyncio
 
@@ -64,6 +64,12 @@ If there are people where gender is uncertain or not mentioned, use gender-neutr
 
 # Poem format (e.g. sonnet, haiku) is set via get_poem_format() below
 
+async def connect_printer():
+    try:
+        await printer.connect_and_send()
+        logging.info("Printer connected")
+    except Exception as e:
+        logging.error(f"Failed to connect to printer: {e}")
 
 def initialize():
     # Load environment variables
@@ -93,32 +99,15 @@ def initialize():
     shutter_button.when_pressed = on_press
     shutter_button.when_released = on_release
 
-    # Check internet connectivity upon startup
-    global internet_connected
-    internet_connected = False
-    check_internet_connection()
-
-    # And periodically check internet in background thread
-    start_periodic_internet_check()
+    # Instantiate 'CatPrinter' and ensure global accessibility
+    global printer
+    printer = CatPrinter()  # Initialize the CatPrinter class
 
     # Connect to printer asynchronously
     asyncio.run(connect_printer())
 
     # Run Flask in a separate thread
     from threading import Thread
-
-    def run_flask_app():
-        from flask import Flask
-        app = Flask(__name__)
-
-        @app.route('/')
-        def home():
-            return "Hello, World!"
-
-        app.run(port=5002)
-
-    flask_thread = Thread(target=run_flask_app)
-    flask_thread.start()
 
     # Continue with main application logic
     logging.info("Main application continues to run")
@@ -226,19 +215,19 @@ def take_photo_and_print_poem():
         print("Error during poem generation: ", error_message)
         print_poem(f"Alas, something went wrong.\n\n.Technical details:\n Error while writing poem. {error_message}")
         print_poem("\n\nTroubleshooting:")
-        print_poem("1. Check your wifi connection.")
+        print_poem("1. Check your Wifi Network and Password.")
         print_poem(
-            "2. Try restarting the camera by holding the shutter button for 10 seconds, waiting for it to shut down, unplugging power, and plugging it back in.")
-        print_poem("3. You may just need to wait a bit and it will pass.")
+            "2. To set the Wifi Network and Password, hold the shutter button for 10s, connect to PoetCam with password, ThePoeteer, hit save.")
+        print_poem("3. Try again. The internet is big and sometimes it needs time to reroute information.")
         print_footer()
         led.on()
         camera_at_rest = True
         return
 
     # for debugging prompts
-    print('------ POEM ------')
-    print(poem)
-    print('------------------')
+#    print('------ POEM ------')
+ #   print(poem)
+  #  print('------------------')
 
     print_poem(poem)
 
@@ -298,13 +287,18 @@ def print_poem(poem):
     led.on()
 
     try:
+        # Append the footer text to the poem
+        current_date = datetime.now().strftime("%B %d, %Y")
+        footer_text = f"\n\nWritten by The Poeteer, {current_date}"
+        full_poem = poem + footer_text
+
         # Print for debugging
         print('--------POEM BELOW-------')
-        print(poem)
+        print(full_poem)
         print('------------------')
 
         # Send the poem text to the cat_printer.py server
-        response = requests.post("http://127.0.0.1:5002", json={"text": poem})
+        response = requests.post("http://127.0.0.1:5002", json={"text": full_poem})
         print(f"Printer response: {response.text}")
 
         led.off()
@@ -355,98 +349,6 @@ def on_release():
         run_ap_activate()
 
 
-################################
-# CHECK INTERNET CONNECTION
-################################
-# Checks internet connection upon startup
-def check_internet_connection():
-    print("Checking internet connection upon startup")
-    global printer  # Define printer globally if it's supposed to be used like this
-    printer = CatPrinter()  # Initialize printer if it's the same as CatPrinter or define appropriately
-    printer.println("\n")
-    printer.justify('C')  # center align header text
-    printer.println("hello, i am")
-    printer.println("poetry camera")
-
-    global internet_connected
-    try:
-        # Check for internet connectivity using requests
-        response = requests.get("http://www.google.com", timeout=5)
-        response.raise_for_status()  # will raise an exception if the request returned an unsuccessful status code
-        internet_connected = True
-        print("i am ONLINE")
-        printer.println("and i am ONLINE!")
-
-        # Get the name of the connected Wi-Fi network
-        # try:
-        #   network_name = subprocess.check_output(['iwgetid', '-r']).decode().strip()
-        #   print(f"Connected to network: {network_name}")
-        #   printer.println(f"connected to: {network_name}")
-        # except Exception as e:
-        #   print("Error while getting network name: ", e)
-
-    except (requests.ConnectionError, requests.Timeout, requests.HTTPError):
-        internet_connected = False
-        print("no internet!")
-        printer.println("but i'm OFFLINE!")
-        printer.println("i need internet to work!")
-        printer.println('connect to PoetryCameraSetup wifi network (pw: "password") on your phone or laptop to fix me!')
-
-    printer.println("\n\n\n\n\n")
-
-
-###############################
-# CHECK INTERNET CONNECTION PERIODICALLY, PRINT ERROR MESSAGE IF DISCONNECTED
-###############################
-def periodic_internet_check(interval):
-    global internet_connected, camera_at_rest
-
-    while True:
-        now = datetime.now()
-        time_string = now.strftime('%-I:%M %p')
-        try:
-            # Check for internet connectivity
-            subprocess.check_call(['ping', '-c', '1', 'google.com'], stdout=subprocess.DEVNULL,
-                                  stderr=subprocess.DEVNULL)
-            # if we don't have internet, exception will be called
-
-            # If previously disconnected but now have internet, print message
-            if not internet_connected:
-                print(time_string + ": I'm back online!")
-                internet_connected = True
-
-        # if we don't have internet, exception will be thrown
-        # except subprocess.CalledProcessError:
-        except (requests.ConnectionError, requests.Timeout) as e:
-
-            # if we were previously connected but lost internet, print error message
-            if internet_connected:
-                print(time_string + ": Internet connection lost. Please check your network settings.")
-                printer.println("\n")
-                printer.println(time_string + ": oh no, i lost internet!")
-                # printer.println('please connect to PoetryCameraSetup wifi network (pw: "password") on your phone to fix me!')
-                printer.println(e)
-                printer.println('\n\n\n\n\n')
-                internet_connected = False
-
-        except Exception as e:
-            print(f"{time_string} Other error: {e}")
-            # if we were previously connected but lost internet, print error message
-            if internet_connected:
-                printer.println(f"{time_string}: idk status, exception: {e}")
-                internet_connected = False
-
-        sleep(interval)  # makes thread idle during sleep period, freeing up CPU resources
-
-
-def start_periodic_internet_check():
-    # Start the background thread
-    interval = 10  # Check every 10 seconds
-    thread = threading.Thread(target=periodic_internet_check, args=(interval,))
-    thread.daemon = True  # Daemonize thread
-    thread.start()
-
-
 def shutdown():
     # Define what should happen when the system is shut down
     print("Shutting down the system...")
@@ -465,20 +367,9 @@ if __name__ == "__main__":
     # Keep script running to listen for button presses
     signal.pause()
 
-async def connect_printer():
-    try:
-        # Simulate printer connection
-        await asyncio.sleep(1)  # Non-blocking sleep
-        logging.info("Printer connected")
-    except Exception as e:
-        logging.error(f"Failed to connect to printer: {e}")
-
 async def main():
     await connect_printer()
     # Continue with other tasks
-
-if __name__ == "__main__":
-    asyncio.run(main())
 
 # Example of a non-blocking loop
 async def check_printer_status_periodically():
