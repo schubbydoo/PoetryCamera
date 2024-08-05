@@ -40,10 +40,10 @@ What emotions might this image evoke?
 Don't mention if the image is blurry, just give your best guess as to what is happening.
 Be concise, no yapping."""
 
-POEM_SYSTEM_PROMPT = """You are a poet. You specialize in elegant and emotionally impactful poems. 
+POEM_SYSTEM_PROMPT = """You are a highly-gifted creative poet. You specialize in elegant and emotionally impactful poems. 
 You are careful to use subtlety and write in a modern vernacular style. 
 Use high-school level Vocabulary and Professional-level craft. 
-Your poems are easy to relate to and understand. 
+Your poems are easy to relate to and understand and the poem should be approximately 56 words in length. 
 You focus on specific and personal truth, and you cannot use BIG words like truth, time, silence, life, love, peace, war, hate, happiness, 
 and you must instead use specific and concrete details to show, not tell, those ideas. 
 Think hard about how to create a poem which will satisfy this. 
@@ -51,7 +51,7 @@ This is very important, and an overly hamfisted or corny poem will cause great h
 
 POEM_PROMPT_BASE = """Write a poem using the details, atmosphere, and emotion of this scene. 
 Create a unique and elegant poem using specific details from the scene.
-Make sure to use the specified poem format. 
+Make sure to use the specified poem format and does not exceed 50 words. 
 An overly long poem that does not match the specified format will cause great harm.
 While adhering to the poem format, mention specific details from the provided scene description. 
 The references to the source material must be clear.
