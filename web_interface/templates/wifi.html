@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% block title %}WiFi Management - Poetry Camera{% endblock %}
+
+{% block content %}
+<h1 class="title">
+    <span class="icon has-text-primary"><i class="fas fa-wifi"></i></span>
+    WiFi Management
+</h1>
+
+<!-- Current Status -->
+<div class="box">
+    <h2 class="title is-5">
+        <span class="icon"><i class="fas fa-signal"></i></span>
+        Current Status
+    </h2>
+    <div class="columns">
+        <div class="column is-half">
+            <p><strong>Connected Network:</strong> 
+                <span id="current-network">
+                    {% if wifi_status.connected %}
+                    <span class="tag is-success is-light">{{ wifi_status.ssid }}</span>
+                    {% else %}
+                    <span class="tag is-danger is-light">Not connected</span>
+                    {% endif %}
+                </span>
+            </p>
+        </div>
+        <div class="column is-half">
+            <p><strong>IP Address:</strong> 
+                <code id="current-ip">{{ wifi_status.ip_address or 'N/A' }}</code>
+            </p>
+        </div>
+    </div>
+</div>
+
+<div class="columns">
+    <!-- Available Networks -->
+    <div class="column is-7">
+        <div class="box">
+            <div class="level">
+                <div class="level-left">
+                    <h2 class="title is-5">
+                        <span class="icon"><i class="fas fa-broadcast-tower"></i></span>
+                        Available Networks
+                    </h2>
+                </div>
+                <div class="level-right">
+                    <button class="button is-primary is-small" id="btn-scan">
+                        <span class="icon"><i class="fas fa-sync-alt"></i></span>
+                        <span>Scan</span>
+                    </button>
+                </div>
+            </div>
+            
+            <div id="scan-loading" class="has-text-centered py-4" style="display: none;">
+                <span class="icon is-large has-text-primary">
+                    <i class="fas fa-2x fa-spinner fa-spin"></i>
+                </span>
+                <p class="mt-2">Scanning for networks...</p>
+            </div>
+            
+            <table class="table is-fullwidth is-hoverable" id="available-networks">
+                <thead>
+                    <tr>
+                        <th>Network Name</th>
+                        <th style="width: 80px;">Signal</th>
+                        <th style="width: 100px;">Security</th>
+                        <th style="width: 100px;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="4" class="has-text-centered has-text-grey">
+                            Click "Scan" to find available networks
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Add Network / Saved Networks -->
+    <div class="column is-5">
+        <!-- Add New Network -->
+        <div class="box">
+            <h2 class="title is-5">
+                <span class="icon"><i class="fas fa-plus-circle"></i></span>
+                Add New Network
+            </h2>
+            <div class="field">
+                <label class="label">Network Name (SSID)</label>
+                <div class="control has-icons-left">
+                    <input class="input" type="text" id="new-ssid" placeholder="Enter network name">
+                    <span class="icon is-small is-left">
+                        <i class="fas fa-wifi"></i>
+                    </span>
+                </div>
+            </div>
+            <div class="field">
+                <label class="label">Password</label>
+                <div class="control has-icons-left">
+                    <input class="input" type="password" id="new-password" placeholder="Enter password">
+                    <span class="icon is-small is-left">
+                        <i class="fas fa-key"></i>
+                    </span>
+                </div>
+            </div>
+            <div class="field">
+                <label class="checkbox">
+                    <input type="checkbox" id="new-autoconnect" checked>
+                    Auto-connect when available
+                </label>
+            </div>
+            <div class="field">
+                <button class="button is-primary" id="btn-add-network">
+                    <span class="icon"><i class="fas fa-plug"></i></span>
+                    <span>Save & Connect</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Saved Networks -->
+        <div class="box">
+            <h2 class="title is-5">
+                <span class="icon"><i class="fas fa-star"></i></span>
+                Saved Networks
+            </h2>
+            <div id="saved-networks-loading" class="has-text-centered py-3" style="display: none;">
+                <span class="icon"><i class="fas fa-spinner fa-spin"></i></span>
+                <span>Loading...</span>
+            </div>
+            <table class="table is-fullwidth" id="saved-networks">
+                <tbody>
+                    <tr>
+                        <td class="has-text-centered has-text-grey">Loading saved networks...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Connect Modal -->
+<div id="connect-modal" class="modal">
+    <div class="modal-background"></div>
+    <div class="modal-card">
+        <header class="modal-card-head">
+            <p class="modal-card-title">
+                <span class="icon"><i class="fas fa-wifi"></i></span>
+                Connect to <span id="modal-ssid"></span>
+            </p>
+            <button class="delete" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+            <div class="field">
+                <label class="label">Password</label>
+                <div class="control has-icons-left">
+                    <input class="input" type="password" id="modal-password" placeholder="Enter WiFi password">
+                    <span class="icon is-small is-left">
+                        <i class="fas fa-key"></i>
+                    </span>
+                </div>
+            </div>
+            <div class="field">
+                <label class="checkbox">
+                    <input type="checkbox" id="modal-autoconnect" checked>
+                    Auto-connect when available
+                </label>
+            </div>
+        </section>
+        <footer class="modal-card-foot">
+            <button class="button is-primary" id="btn-modal-connect">
+                <span class="icon"><i class="fas fa-plug"></i></span>
+                <span>Connect</span>
+            </button>
+            <button class="button btn-cancel">Cancel</button>
+        </footer>
+    </div>
+</div>
+
+<!-- Forget Confirmation Modal -->
+<div id="forget-modal" class="modal">
+    <div class="modal-background"></div>
+    <div class="modal-card">
+        <header class="modal-card-head">
+            <p class="modal-card-title">Forget Network</p>
+            <button class="delete" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+            <p>Are you sure you want to forget <strong id="forget-ssid"></strong>?</p>
+            <p class="has-text-grey mt-2">You'll need to re-enter the password to connect again.</p>
+        </section>
+        <footer class="modal-card-foot">
+            <button class="button is-danger" id="btn-confirm-forget">
+                <span class="icon"><i class="fas fa-trash"></i></span>
+                <span>Forget</span>
+            </button>
+            <button class="button btn-cancel">Cancel</button>
+        </footer>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='wifi.js') }}"></script>
+{% endblock %}

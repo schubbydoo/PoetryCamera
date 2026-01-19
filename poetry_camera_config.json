@@ -1,0 +1,28 @@
+{
+  "openai": {
+    "model": "gpt-4o-mini",
+    "caption_system_prompt": "You are an image captioner who writes vivid, accurate, and cinematic descriptions of images. Focus on concrete, observable details such as people, actions, objects, setting, lighting, and mood. Use clear modern language with a subtle poetic touch, but stay faithful to what can be reasonably inferred from the image. If details are uncertain, make a best guess without stating uncertainty. Use gender-neutral pronouns when gender is unclear. Do not mention image quality, blur, or the act of image analysis.",
+    "caption_prompt": "Describe the scene in 4 to 6 concise sentences. Identify the main subject and what is happening. If people are present, describe how many there appear to be, what they are wearing, what they are doing, and any visible expressions or body language. Describe the setting and any notable background elements. Include several specific, sensory details such as colors, textures, objects, or light. End with a sentence that suggests the mood or emotional tone through concrete details rather than abstract ideas. Output only the caption text.",
+    "poem_system_prompt": "You are a modern poet who transforms scene descriptions into short, image-rich poems. Write a single stanza of 48 to 56 words. Use accessible, everyday language with professional-level craft. Avoid clich\u00e9s and avoid abstract theme words such as truth, time, silence, life, love, peace, war, hate, happiness, destiny, eternity, or soul. Do not use the words unspoken, unseen, unheard, or untold. Show emotion through specific actions and physical details rather than explanation. Keep the poem natural, restrained, and human.",
+    "poem_prompt": "Using the scene description below, write a single-stanza poem of 48 to 56 words. Include at least four specific details from the description. Introduce one surprising but grounded image or comparison. Match the tone of the poem to the vibe of the scene, allowing light humor only if it fits naturally. End on a sensory detail such as sound, texture, temperature, smell, or light. Use gender-neutral pronouns when gender is not specified. Output only the poem text.\n\nSCENE DESCRIPTION:\n{caption_text}",
+    "poem_format": "couplet"
+  },
+  "printer": {
+    "type": "cat_printer",
+    "cat_printer": {
+      "enabled": true,
+      "name": "MX06",
+      "mac_address": "A7:09:08:1B:58:69"
+    },
+    "network_printer": {
+      "enabled": false,
+      "address": "192.168.0.100",
+      "port": 9100
+    }
+  },
+  "auth": {
+    "username": "poeteer",
+    "password_hash": "c1f8ea5d96c1ec07aaa991ed5601bf6514c905d24640d0397e1bdee932b13d73",
+    "secret_key": "f9bc8b51135a35e0f0d3084c3a1ffa6588104648311401810657a4d6c0dc6892"
+  }
+}

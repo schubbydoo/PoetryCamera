@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}Account Settings - Poetry Camera{% endblock %}
+
+{% block content %}
+<h1 class="title">
+    <span class="icon has-text-primary"><i class="fas fa-user-cog"></i></span>
+    Account Settings
+</h1>
+
+<div class="columns">
+    <div class="column is-half">
+        <!-- Current User Info -->
+        <div class="box">
+            <h2 class="title is-5">
+                <span class="icon"><i class="fas fa-user"></i></span>
+                Account Information
+            </h2>
+            <table class="table is-fullwidth">
+                <tbody>
+                    <tr>
+                        <td class="has-text-weight-bold" style="width: 120px;">Username</td>
+                        <td><code>{{ username }}</code></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Change Password -->
+        <div class="box">
+            <h2 class="title is-5">
+                <span class="icon"><i class="fas fa-key"></i></span>
+                Change Password
+            </h2>
+            
+            <div class="field">
+                <label class="label">Current Password</label>
+                <div class="control has-icons-left">
+                    <input class="input" type="password" id="current-password" placeholder="Enter current password">
+                    <span class="icon is-small is-left">
+                        <i class="fas fa-lock"></i>
+                    </span>
+                </div>
+            </div>
+            
+            <div class="field">
+                <label class="label">New Password</label>
+                <div class="control has-icons-left">
+                    <input class="input" type="password" id="new-password" placeholder="Enter new password">
+                    <span class="icon is-small is-left">
+                        <i class="fas fa-key"></i>
+                    </span>
+                </div>
+                <p class="help">Minimum 4 characters</p>
+            </div>
+            
+            <div class="field">
+                <label class="label">Confirm New Password</label>
+                <div class="control has-icons-left">
+                    <input class="input" type="password" id="confirm-password" placeholder="Confirm new password">
+                    <span class="icon is-small is-left">
+                        <i class="fas fa-key"></i>
+                    </span>
+                </div>
+            </div>
+            
+            <div class="field">
+                <button class="button is-primary" id="btn-change-password">
+                    <span class="icon"><i class="fas fa-save"></i></span>
+                    <span>Change Password</span>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="column is-half">
+        <!-- Security Tips -->
+        <div class="box has-background-info-light">
+            <h2 class="title is-5">
+                <span class="icon has-text-info"><i class="fas fa-shield-alt"></i></span>
+                Security Tips
+            </h2>
+            <div class="content">
+                <ul>
+                    <li>Change the default password to something unique</li>
+                    <li>Use a password you don't use elsewhere</li>
+                    <li>The web interface is accessible on your local network</li>
+                    <li>Consider your network security when choosing a password</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('btn-change-password').addEventListener('click', async function() {
+    const currentPassword = document.getElementById('current-password').value;
+    const newPassword = document.getElementById('new-password').value;
+    const confirmPassword = document.getElementById('confirm-password').value;
+    
+    // Validation
+    if (!currentPassword || !newPassword || !confirmPassword) {
+        showNotification('Please fill in all fields', 'warning');
+        return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+        showNotification('New passwords do not match', 'warning');
+        return;
+    }
+    
+    if (newPassword.length < 4) {
+        showNotification('Password must be at least 4 characters', 'warning');
+        return;
+    }
+    
+    const btn = this;
+    setButtonLoading(btn, true);
+    
+    try {
+        const result = await apiCall('/api/settings/password', 'POST', {
+            current_password: currentPassword,
+            new_password: newPassword
+        });
+        
+        if (result.success) {
+            showNotification('Password changed successfully!', 'success');
+            // Clear the form
+            document.getElementById('current-password').value = '';
+            document.getElementById('new-password').value = '';
+            document.getElementById('confirm-password').value = '';
+        } else {
+            showNotification(result.error || 'Failed to change password', 'danger');
+        }
+    } catch (error) {
+        showNotification(error.message, 'danger');
+    } finally {
+        setButtonLoading(btn, false);
+    }
+});
+</script>
+{% endblock %}

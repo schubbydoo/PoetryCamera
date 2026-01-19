@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+{% block title %}Settings - Poetry Camera{% endblock %}
+
+{% block content %}
+<h1 class="title">
+    <span class="icon has-text-primary"><i class="fas fa-sliders-h"></i></span>
+    Settings
+</h1>
+
+<div class="tabs is-boxed">
+    <ul>
+        <li class="is-active" data-tab="printer-tab">
+            <a>
+                <span class="icon"><i class="fas fa-print"></i></span>
+                <span>Printer</span>
+            </a>
+        </li>
+        <li data-tab="openai-tab">
+            <a>
+                <span class="icon"><i class="fas fa-robot"></i></span>
+                <span>AI Settings</span>
+            </a>
+        </li>
+        <li data-tab="prompts-tab">
+            <a>
+                <span class="icon"><i class="fas fa-comment-dots"></i></span>
+                <span>Prompts</span>
+            </a>
+        </li>
+    </ul>
+</div>
+
+<!-- Printer Settings Tab -->
+<div id="printer-tab" class="tab-content">
+    <div class="box">
+        <h2 class="title is-5">
+            <span class="icon"><i class="fas fa-print"></i></span>
+            Printer Configuration
+        </h2>
+        
+        <div class="field">
+            <label class="label">Printer Type</label>
+            <div class="control">
+                <div class="select is-fullwidth">
+                    <select id="printer-type">
+                        <option value="cat_printer" {% if printer_config.type == 'cat_printer' %}selected{% endif %}>
+                            Cat Printer (Bluetooth)
+                        </option>
+                        <option value="network_printer" {% if printer_config.type == 'network_printer' %}selected{% endif %}>
+                            Network Printer
+                        </option>
+                        <option value="both" {% if printer_config.type == 'both' %}selected{% endif %}>
+                            Both Printers
+                        </option>
+                    </select>
+                </div>
+            </div>
+            <p class="help">Select which printer(s) to use for printing poems</p>
+        </div>
+        
+        <!-- Cat Printer Settings -->
+        <div class="box has-background-light mt-4" id="cat-printer-settings">
+            <h3 class="subtitle is-6 has-text-weight-bold">
+                <span class="icon"><i class="fab fa-bluetooth-b"></i></span>
+                Cat Printer (Bluetooth)
+            </h3>
+            <div class="field">
+                <label class="label">Printer Name</label>
+                <div class="control">
+                    <input class="input" type="text" id="cat-printer-name" 
+                           value="{{ printer_config.cat_printer.name }}" placeholder="MX06">
+                </div>
+                <p class="help">Bluetooth device name of the printer</p>
+            </div>
+            <div class="field">
+                <label class="label">MAC Address</label>
+                <div class="control">
+                    <input class="input" type="text" id="cat-printer-mac" 
+                           value="{{ printer_config.cat_printer.mac_address }}" 
+                           placeholder="A7:09:08:1B:58:69">
+                </div>
+                <p class="help">Bluetooth MAC address of the printer</p>
+            </div>
+        </div>
+        
+        <!-- Network Printer Settings -->
+        <div class="box has-background-light mt-4" id="network-printer-settings">
+            <h3 class="subtitle is-6 has-text-weight-bold">
+                <span class="icon"><i class="fas fa-network-wired"></i></span>
+                Network Printer
+            </h3>
+            <div class="field">
+                <label class="label">IP Address</label>
+                <div class="control">
+                    <input class="input" type="text" id="network-printer-address" 
+                           value="{{ printer_config.network_printer.address }}" 
+                           placeholder="192.168.0.100">
+                </div>
+            </div>
+            <div class="field">
+                <label class="label">Port</label>
+                <div class="control">
+                    <input class="input" type="number" id="network-printer-port" 
+                           value="{{ printer_config.network_printer.port }}" 
+                           placeholder="9100">
+                </div>
+            </div>
+        </div>
+        
+        <div class="field mt-4">
+            <button class="button is-primary" id="btn-save-printer">
+                <span class="icon"><i class="fas fa-save"></i></span>
+                <span>Save Printer Settings</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- OpenAI Settings Tab -->
+<div id="openai-tab" class="tab-content" style="display: none;">
+    <div class="box">
+        <h2 class="title is-5">
+            <span class="icon"><i class="fas fa-robot"></i></span>
+            OpenAI Configuration
+        </h2>
+        
+        <div class="field">
+            <label class="label">Model</label>
+            <div class="control">
+                <div class="select is-fullwidth">
+                    <select id="openai-model">
+                        <option value="gpt-4o-mini" {% if openai_config.model == 'gpt-4o-mini' %}selected{% endif %}>
+                            GPT-4o Mini (Recommended - Fast & Affordable)
+                        </option>
+                        <option value="gpt-4o" {% if openai_config.model == 'gpt-4o' %}selected{% endif %}>
+                            GPT-4o (Best Quality)
+                        </option>
+                        <option value="gpt-4-turbo" {% if openai_config.model == 'gpt-4-turbo' %}selected{% endif %}>
+                            GPT-4 Turbo
+                        </option>
+                        <option value="gpt-3.5-turbo" {% if openai_config.model == 'gpt-3.5-turbo' %}selected{% endif %}>
+                            GPT-3.5 Turbo (Fastest)
+                        </option>
+                    </select>
+                </div>
+            </div>
+            <p class="help">Select the OpenAI model for generating captions and poems</p>
+        </div>
+        
+        <div class="field">
+            <label class="label">Poem Format</label>
+            <div class="control">
+                <input class="input" type="text" id="poem-format" 
+                       value="{{ openai_config.poem_format }}" placeholder="couplet">
+            </div>
+            <p class="help">The style/format for generated poems (e.g., couplet, haiku, sonnet)</p>
+        </div>
+        
+        <div class="field mt-4">
+            <button class="button is-primary" id="btn-save-openai">
+                <span class="icon"><i class="fas fa-save"></i></span>
+                <span>Save AI Settings</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Prompts Tab -->
+<div id="prompts-tab" class="tab-content" style="display: none;">
+    <div class="notification is-info is-light">
+        <span class="icon"><i class="fas fa-lightbulb"></i></span>
+        <strong>Tip:</strong> These prompts control how the AI describes images and writes poetry. 
+        Modify carefully - small changes can significantly affect the output.
+    </div>
+    
+    <!-- Caption System Prompt -->
+    <div class="box">
+        <h2 class="title is-5">Caption System Prompt</h2>
+        <p class="help mb-3">Sets the AI's role/persona for describing images</p>
+        <div class="field">
+            <div class="control">
+                <textarea class="textarea" id="caption-system-prompt" rows="6">{{ openai_config.caption_system_prompt }}</textarea>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Caption Prompt -->
+    <div class="box">
+        <h2 class="title is-5">Caption Prompt</h2>
+        <p class="help mb-3">Instructions for what to describe in the image</p>
+        <div class="field">
+            <div class="control">
+                <textarea class="textarea" id="caption-prompt" rows="10">{{ openai_config.caption_prompt }}</textarea>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Poem System Prompt -->
+    <div class="box">
+        <h2 class="title is-5">Poem System Prompt</h2>
+        <p class="help mb-3">Sets the AI's role/persona for writing poetry</p>
+        <div class="field">
+            <div class="control">
+                <textarea class="textarea" id="poem-system-prompt" rows="8">{{ openai_config.poem_system_prompt }}</textarea>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Poem Prompt -->
+    <div class="box">
+        <h2 class="title is-5">Poem Prompt</h2>
+        <p class="help mb-3">Instructions for how to write the poem</p>
+        <div class="field">
+            <div class="control">
+                <textarea class="textarea" id="poem-prompt" rows="12">{{ openai_config.poem_prompt }}</textarea>
+            </div>
+        </div>
+    </div>
+    
+    <div class="field">
+        <div class="buttons">
+            <button class="button is-primary" id="btn-save-prompts">
+                <span class="icon"><i class="fas fa-save"></i></span>
+                <span>Save All Prompts</span>
+            </button>
+            <button class="button is-warning is-outlined" id="btn-reset-prompts">
+                <span class="icon"><i class="fas fa-undo"></i></span>
+                <span>Reset to Defaults</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Reset Confirmation Modal -->
+<div id="reset-modal" class="modal">
+    <div class="modal-background"></div>
+    <div class="modal-card">
+        <header class="modal-card-head">
+            <p class="modal-card-title">
+                <span class="icon has-text-warning"><i class="fas fa-undo"></i></span>
+                Reset to Defaults
+            </p>
+            <button class="delete" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+            <p>Are you sure you want to reset all prompts to their default values?</p>
+            <p class="has-text-grey mt-2">This cannot be undone.</p>
+        </section>
+        <footer class="modal-card-foot">
+            <button id="btn-confirm-reset" class="button is-warning">
+                <span class="icon"><i class="fas fa-undo"></i></span>
+                <span>Reset to Defaults</span>
+            </button>
+            <button class="button btn-cancel">Cancel</button>
+        </footer>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='settings.js') }}"></script>
+{% endblock %}

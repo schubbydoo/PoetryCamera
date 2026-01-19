@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}System Management - Poetry Camera{% endblock %}
+
+{% block content %}
+<h1 class="title">
+    <span class="icon has-text-primary"><i class="fas fa-cogs"></i></span>
+    System Management
+</h1>
+
+<!-- Current Version -->
+<div class="box">
+    <h2 class="title is-5">
+        <span class="icon"><i class="fas fa-code-branch"></i></span>
+        Current Version
+    </h2>
+    <table class="table is-fullwidth">
+        <tbody>
+            <tr>
+                <td class="has-text-weight-bold" style="width: 150px;">Version</td>
+                <td><span class="version-badge">{{ system_info.version }}</span></td>
+            </tr>
+            <tr>
+                <td class="has-text-weight-bold">Git Commit</td>
+                <td><span class="version-badge">{{ system_info.git_commit }}</span></td>
+            </tr>
+            <tr>
+                <td class="has-text-weight-bold">Last Updated</td>
+                <td>{{ system_info.last_updated }}</td>
+            </tr>
+            <tr>
+                <td class="has-text-weight-bold">Hostname</td>
+                <td><code>{{ system_info.hostname }}</code></td>
+            </tr>
+            <tr>
+                <td class="has-text-weight-bold">Uptime</td>
+                <td>{{ system_info.uptime }}</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Software Updates -->
+<div class="box">
+    <h2 class="title is-5">
+        <span class="icon"><i class="fas fa-cloud-download-alt"></i></span>
+        Software Updates
+    </h2>
+    
+    <div id="update-status" class="mb-4">
+        <p class="has-text-grey">
+            <span class="icon"><i class="fas fa-info-circle"></i></span>
+            Click below to check for available updates from GitHub.
+        </p>
+    </div>
+    
+    <div id="update-commits" class="mb-4" style="display: none;">
+        <h3 class="subtitle is-6 has-text-weight-bold">Available Updates:</h3>
+        <div class="commit-list"></div>
+    </div>
+    
+    <div class="buttons">
+        <button id="btn-check-updates" class="button is-info">
+            <span class="icon"><i class="fas fa-sync-alt"></i></span>
+            <span>Check for Updates</span>
+        </button>
+        <button id="btn-apply-updates" class="button is-success" style="display: none;">
+            <span class="icon"><i class="fas fa-download"></i></span>
+            <span>Apply Updates</span>
+        </button>
+    </div>
+</div>
+
+<!-- Device Actions -->
+<div class="box">
+    <h2 class="title is-5">
+        <span class="icon"><i class="fas fa-tools"></i></span>
+        Device Actions
+    </h2>
+    <div class="buttons">
+        <button id="btn-reboot" class="button is-danger">
+            <span class="icon"><i class="fas fa-power-off"></i></span>
+            <span>Reboot Device</span>
+        </button>
+    </div>
+    <p class="help has-text-grey">
+        <span class="icon"><i class="fas fa-exclamation-triangle"></i></span>
+        Rebooting will temporarily disconnect you from this interface.
+    </p>
+</div>
+
+<!-- How Updates Work -->
+<div class="box has-background-info-light">
+    <h2 class="title is-5">
+        <span class="icon has-text-info"><i class="fas fa-question-circle"></i></span>
+        How Updates Work
+    </h2>
+    <div class="content">
+        <ol>
+            <li><strong>Check for Updates</strong> - Connects to GitHub to check for new code</li>
+            <li><strong>Review Changes</strong> - See what commits will be applied</li>
+            <li><strong>Apply Updates</strong> - Downloads and installs new code</li>
+            <li><strong>Reboot</strong> - Restart the device to complete the update</li>
+        </ol>
+        <p class="has-text-weight-bold">
+            <span class="icon has-text-success"><i class="fas fa-shield-alt"></i></span>
+            Your settings, WiFi configuration, and photos are preserved during updates.
+        </p>
+    </div>
+</div>
+
+<!-- Reboot Confirmation Modal -->
+<div id="reboot-modal" class="modal">
+    <div class="modal-background"></div>
+    <div class="modal-card">
+        <header class="modal-card-head">
+            <p class="modal-card-title">
+                <span class="icon has-text-danger"><i class="fas fa-power-off"></i></span>
+                Confirm Reboot
+            </p>
+            <button class="delete" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+            <p>Are you sure you want to reboot the device?</p>
+            <p class="has-text-grey mt-2">You will be temporarily disconnected from this interface.</p>
+        </section>
+        <footer class="modal-card-foot">
+            <button id="btn-confirm-reboot" class="button is-danger">
+                <span class="icon"><i class="fas fa-power-off"></i></span>
+                <span>Reboot Now</span>
+            </button>
+            <button class="button btn-cancel">Cancel</button>
+        </footer>
+    </div>
+</div>
+
+<!-- Update Confirmation Modal -->
+<div id="update-modal" class="modal">
+    <div class="modal-background"></div>
+    <div class="modal-card">
+        <header class="modal-card-head">
+            <p class="modal-card-title">
+                <span class="icon has-text-success"><i class="fas fa-download"></i></span>
+                Apply Updates
+            </p>
+            <button class="delete" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+            <p>Are you sure you want to apply the available updates?</p>
+            <p class="has-text-grey mt-2">
+                The device should be rebooted after updates are applied.
+            </p>
+        </section>
+        <footer class="modal-card-foot">
+            <button id="btn-confirm-update" class="button is-success">
+                <span class="icon"><i class="fas fa-download"></i></span>
+                <span>Apply Updates</span>
+            </button>
+            <button class="button btn-cancel">Cancel</button>
+        </footer>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='system.js') }}"></script>
+{% endblock %}

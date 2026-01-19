@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Poetry Camera{% endblock %}</title>
+    
+    <!-- Bulma CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <!-- AP Mode Warning Banner -->
+    {% if is_in_ap_mode %}
+    <div class="notification is-warning has-text-centered is-light ap-banner">
+        <span class="icon"><i class="fas fa-broadcast-tower"></i></span>
+        <strong>Device is in Access Point Mode.</strong> 
+        Connect to your home Wi-Fi via the <a href="{{ url_for('wifi') }}">WiFi Setup</a> page.
+    </div>
+    {% endif %}
+
+    <!-- Navigation -->
+    <nav class="navbar is-dark" role="navigation" aria-label="main navigation">
+        <div class="navbar-brand">
+            <a class="navbar-item" href="{{ url_for('home') }}">
+                <span class="icon mr-2"><i class="fas fa-camera-retro"></i></span>
+                <strong>Poetry Camera</strong>
+            </a>
+            <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="mainNavbar">
+                <span aria-hidden="true"></span>
+                <span aria-hidden="true"></span>
+                <span aria-hidden="true"></span>
+            </a>
+        </div>
+        <div id="mainNavbar" class="navbar-menu">
+            <div class="navbar-start">
+                {% if current_user and current_user.is_authenticated %}
+                <a class="navbar-item {% if request.endpoint == 'home' %}is-active{% endif %}" href="{{ url_for('home') }}">
+                    <span class="icon"><i class="fas fa-tachometer-alt"></i></span>
+                    <span>Dashboard</span>
+                </a>
+                <a class="navbar-item {% if request.endpoint == 'wifi' %}is-active{% endif %}" href="{{ url_for('wifi') }}">
+                    <span class="icon"><i class="fas fa-wifi"></i></span>
+                    <span>WiFi</span>
+                </a>
+                <a class="navbar-item {% if request.endpoint == 'settings' %}is-active{% endif %}" href="{{ url_for('settings') }}">
+                    <span class="icon"><i class="fas fa-sliders-h"></i></span>
+                    <span>Settings</span>
+                </a>
+                <a class="navbar-item {% if request.endpoint == 'system' %}is-active{% endif %}" href="{{ url_for('system') }}">
+                    <span class="icon"><i class="fas fa-cogs"></i></span>
+                    <span>System</span>
+                </a>
+                {% endif %}
+            </div>
+            <div class="navbar-end">
+                <div class="navbar-item">
+                    <div class="buttons">
+                        {% if current_user and current_user.is_authenticated %}
+                        <a href="{{ url_for('account') }}" class="button is-light is-small">
+                            <span class="icon"><i class="fas fa-user"></i></span>
+                            <span>Account</span>
+                        </a>
+                        <a href="{{ url_for('logout') }}" class="button is-light is-small">
+                            <span class="icon"><i class="fas fa-sign-out-alt"></i></span>
+                            <span>Logout</span>
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash Messages -->
+    <section class="section py-3" id="flash-messages">
+        <div class="container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                    <div class="notification is-{{ category }} is-light">
+                        <button class="delete"></button>
+                        {{ message }}
+                    </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <section class="section main-content">
+        <div class="container">
+            {% block content %}{% endblock %}
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="content has-text-centered">
+            <p>
+                <span class="icon"><i class="fas fa-camera-retro"></i></span>
+                <strong>Poetry Camera</strong> &copy; {{ current_year }}
+                {% if version %}
+                <span class="tag is-dark is-small ml-2">v{{ version }}</span>
+                {% endif %}
+            </p>
+        </div>
+    </footer>
+
+    <!-- Core JavaScript -->
+    <script src="{{ url_for('static', filename='main.js') }}"></script>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>

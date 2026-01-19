@@ -1,10 +1,20 @@
+"""
+AP Mode Activation Script for Poetry Camera
+
+Activates the PoetCam access point mode when the user holds the shutter button
+for more than 9 seconds. The web interface (running on port 8000) will
+automatically detect AP mode and display the appropriate banner.
+"""
+
 import subprocess
 import os
 import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+
 def activate_ap_mode():
+    """Activate the PoetCam access point for WiFi configuration."""
     try:
         # Attempt to bring up the PoetCam connection
         result = subprocess.run(
@@ -25,25 +35,38 @@ def activate_ap_mode():
         
         if "PoetCam" in check_result.stdout or "Connection successfully activated" in result.stdout:
             logging.info("PoetCam AP mode activated successfully")
-            # Print environment variables for debugging
-            logging.info("Environment variables:")
-            for key, value in os.environ.items():
-                logging.info(f"{key}: {value}")
+            logging.info("Web interface is available at http://10.42.0.1:8000")
+            logging.info("Users can configure WiFi via the web interface")
             
-            # Activate virtual environment and run wifi_config.py
-            venv_activate = "/home/shschubert/PoetryCamera/poetrycamera-env/bin/activate"
-            command = f"source {venv_activate} && python3 /home/shschubert/PoetryCamera/network-setup/wifi_config.py"
-            wifi_result = subprocess.run(command, shell=True, capture_output=True, text=True, executable='/bin/bash')
+            # The web interface is already running (started by startup.sh)
+            # It will automatically detect AP mode and show the appropriate UI
+            # No need to start wifi_config.py separately anymore
             
-            logging.info("wifi_config.py output: %s", wifi_result.stdout)
-            logging.info("wifi_config.py error (if any): %s", wifi_result.stderr)
         else:
-            logging.error("Failed to start Wifi Setup")
+            logging.error("Failed to start WiFi Setup")
+            
     except subprocess.CalledProcessError as e:
-        logging.error(f"Failed to start Wifi Setup: {e}")
+        logging.error(f"Failed to start WiFi Setup: {e}")
         logging.error(e.stderr)
     except Exception as e:
         logging.error(f"Unexpected error: {e}")
+
+
+def deactivate_ap_mode():
+    """Deactivate the PoetCam access point."""
+    try:
+        result = subprocess.run(
+            ["sudo", "nmcli", "connection", "down", "PoetCam"],
+            capture_output=True,
+            text=True
+        )
+        if result.returncode == 0:
+            logging.info("PoetCam AP mode deactivated")
+        else:
+            logging.error(f"Failed to deactivate AP mode: {result.stderr}")
+    except Exception as e:
+        logging.error(f"Error deactivating AP mode: {e}")
+
 
 if __name__ == "__main__":
     activate_ap_mode()

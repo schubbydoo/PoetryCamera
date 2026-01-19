@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Poetry Camera{% endblock %}
+
+{% block content %}
+<!-- Welcome Box -->
+<div class="box welcome-box mb-5">
+    <div class="columns is-vcentered">
+        <div class="column is-narrow">
+            <span class="icon is-large has-text-primary">
+                <i class="fas fa-3x fa-camera-retro"></i>
+            </span>
+        </div>
+        <div class="column">
+            <h1 class="title is-4">Poetry Camera</h1>
+            <p class="subtitle is-6 has-text-grey">
+                Capture moments, create poetry. Your camera transforms photos into elegant poems using AI.
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Feature Cards -->
+<div class="columns is-multiline">
+    <!-- WiFi Card -->
+    <div class="column is-4">
+        <div class="box feature-card has-text-centered">
+            <span class="icon is-large has-text-info">
+                <i class="fas fa-2x fa-wifi"></i>
+            </span>
+            <h2 class="title is-5 mt-3">WiFi Settings</h2>
+            <p class="subtitle is-6 has-text-grey">Connect to your network</p>
+            <a href="{{ url_for('wifi') }}" class="button is-info is-outlined">
+                <span class="icon"><i class="fas fa-cog"></i></span>
+                <span>Configure</span>
+            </a>
+        </div>
+    </div>
+    
+    <!-- Settings Card -->
+    <div class="column is-4">
+        <div class="box feature-card has-text-centered">
+            <span class="icon is-large has-text-success">
+                <i class="fas fa-2x fa-sliders-h"></i>
+            </span>
+            <h2 class="title is-5 mt-3">AI & Printer</h2>
+            <p class="subtitle is-6 has-text-grey">Customize prompts & printers</p>
+            <a href="{{ url_for('settings') }}" class="button is-success is-outlined">
+                <span class="icon"><i class="fas fa-cog"></i></span>
+                <span>Configure</span>
+            </a>
+        </div>
+    </div>
+    
+    <!-- System Card -->
+    <div class="column is-4">
+        <div class="box feature-card has-text-centered">
+            <span class="icon is-large has-text-warning">
+                <i class="fas fa-2x fa-cogs"></i>
+            </span>
+            <h2 class="title is-5 mt-3">System</h2>
+            <p class="subtitle is-6 has-text-grey">Updates & maintenance</p>
+            <a href="{{ url_for('system') }}" class="button is-warning is-outlined">
+                <span class="icon"><i class="fas fa-cog"></i></span>
+                <span>Manage</span>
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Status Section -->
+<div class="columns">
+    <!-- Device Status -->
+    <div class="column is-6">
+        <div class="box">
+            <h2 class="title is-5">
+                <span class="icon has-text-primary"><i class="fas fa-info-circle"></i></span>
+                Device Status
+            </h2>
+            <table class="table is-fullwidth is-striped">
+                <tbody>
+                    <tr>
+                        <td class="has-text-weight-bold" style="width: 140px;">
+                            <span class="icon"><i class="fas fa-wifi"></i></span>
+                            Network
+                        </td>
+                        <td>
+                            {% if wifi_status.connected %}
+                            <span class="tag is-success is-light">{{ wifi_status.ssid }}</span>
+                            {% else %}
+                            <span class="tag is-danger is-light">Not Connected</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="has-text-weight-bold">
+                            <span class="icon"><i class="fas fa-network-wired"></i></span>
+                            IP Address
+                        </td>
+                        <td><code>{{ wifi_status.ip_address or 'N/A' }}</code></td>
+                    </tr>
+                    <tr>
+                        <td class="has-text-weight-bold">
+                            <span class="icon"><i class="fas fa-code-branch"></i></span>
+                            Version
+                        </td>
+                        <td>
+                            <span class="tag is-dark">v{{ system_info.version }}</span>
+                            <span class="tag is-light">{{ system_info.git_commit }}</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="has-text-weight-bold">
+                            <span class="icon"><i class="fas fa-clock"></i></span>
+                            Uptime
+                        </td>
+                        <td>{{ system_info.uptime }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Printer Status -->
+    <div class="column is-6">
+        <div class="box">
+            <h2 class="title is-5">
+                <span class="icon has-text-primary"><i class="fas fa-print"></i></span>
+                Printer Status
+            </h2>
+            <table class="table is-fullwidth is-striped">
+                <tbody>
+                    <tr>
+                        <td class="has-text-weight-bold" style="width: 140px;">
+                            <span class="icon"><i class="fas fa-plug"></i></span>
+                            Connection
+                        </td>
+                        <td>
+                            {% if printer_status.connected or printer_status.ready %}
+                            <span class="tag is-success is-light">
+                                <span class="icon"><i class="fas fa-check"></i></span>
+                                <span>Connected</span>
+                            </span>
+                            {% else %}
+                            <span class="tag is-warning is-light">
+                                <span class="icon"><i class="fas fa-exclamation-triangle"></i></span>
+                                <span>Disconnected</span>
+                            </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="has-text-weight-bold">
+                            <span class="icon"><i class="fas fa-print"></i></span>
+                            Type
+                        </td>
+                        <td>
+                            {% if printer_config.type == 'cat_printer' %}
+                            <span class="tag is-info is-light">Cat Printer (BLE)</span>
+                            {% elif printer_config.type == 'network_printer' %}
+                            <span class="tag is-info is-light">Network Printer</span>
+                            {% else %}
+                            <span class="tag is-info is-light">Both Printers</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% if printer_status.status %}
+                    <tr>
+                        <td class="has-text-weight-bold">
+                            <span class="icon"><i class="fas fa-battery-half"></i></span>
+                            Status
+                        </td>
+                        <td>
+                            {% if printer_status.status.no_paper %}
+                            <span class="tag is-danger is-light">No Paper</span>
+                            {% elif printer_status.status.battery_low %}
+                            <span class="tag is-warning is-light">Low Battery</span>
+                            {% elif printer_status.status.over_temp %}
+                            <span class="tag is-danger is-light">Overheating</span>
+                            {% else %}
+                            <span class="tag is-success is-light">Ready</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <td class="has-text-weight-bold">
+                            <span class="icon"><i class="fas fa-vial"></i></span>
+                            Test
+                        </td>
+                        <td>
+                            <button class="button is-small is-primary is-outlined" id="btn-test-print">
+                                <span class="icon"><i class="fas fa-print"></i></span>
+                                <span>Test Print</span>
+                            </button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Help -->
+<div class="box has-background-light">
+    <h2 class="title is-5">
+        <span class="icon has-text-info"><i class="fas fa-question-circle"></i></span>
+        Quick Start
+    </h2>
+    <div class="content">
+        <ol>
+            <li><strong>Connect WiFi</strong> - Ensure your camera is connected to your home network</li>
+            <li><strong>Check Printer</strong> - Make sure your thermal printer is powered on and paired</li>
+            <li><strong>Take Photos</strong> - Press the shutter button to capture and generate poetry</li>
+            <li><strong>Configure</strong> - Use Settings to customize AI prompts and printer options</li>
+        </ol>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('btn-test-print').addEventListener('click', async function() {
+    const btn = this;
+    setButtonLoading(btn, true);
+    
+    try {
+        const result = await apiCall('/api/printer/test', 'POST');
+        if (result.success) {
+            showNotification('Test print sent to printer!', 'success');
+        } else {
+            showNotification(result.error || 'Failed to send test print', 'danger');
+        }
+    } catch (error) {
+        showNotification(error.message, 'danger');
+    } finally {
+        setButtonLoading(btn, false);
+    }
+});
+</script>
+{% endblock %}
