@@ -89,14 +89,27 @@ def home():
     system_info = system_manager.get_system_info()
     printer_config = config_manager.get_printer_config()
     
-    # Try to get printer status
-    printer_status = {"connected": False, "status": "Unknown"}
+    # Try to get printer status from cat_printer service
+    printer_status = {"connected": False, "ready": False, "status": {}, "service_running": False}
     try:
-        response = requests.get("http://127.0.0.1:5002", timeout=2)
+        response = requests.get("http://127.0.0.1:5002", timeout=1)
         if response.ok:
-            printer_status = response.json()
-            printer_status["connected"] = printer_status.get("ready", False)
-    except:
+            data = response.json()
+            printer_status = {
+                "connected": data.get("ready", False),
+                "ready": data.get("ready", False),
+                "address": data.get("address"),
+                "status": data.get("status", {}),
+                "transmit": data.get("transmit", False),
+                "service_running": True
+            }
+    except requests.exceptions.ConnectionError:
+        # Service not running
+        printer_status["service_running"] = False
+    except requests.exceptions.Timeout:
+        # Service might be busy
+        printer_status["service_running"] = True
+    except Exception:
         pass
     
     return render_template('index.html',

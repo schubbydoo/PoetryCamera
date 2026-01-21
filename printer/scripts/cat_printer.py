@@ -25,10 +25,63 @@ from datetime import datetime
 
 logging.basicConfig(level=logging.INFO)
 
+# Module-level Flask app for Gunicorn
 app = Flask(__name__)
 
+# Global printer instance (initialized lazily)
+_printer_instance = None
+_ble_thread = None
+
+def get_printer():
+    """Get or create the global printer instance."""
+    global _printer_instance, _ble_thread
+    if _printer_instance is None:
+        logging.info("Initializing CatPrinter instance...")
+        _printer_instance = CatPrinter(start_services=False)
+        # Start BLE connection in a background thread
+        _ble_thread = threading.Thread(target=_run_ble_loop, daemon=True)
+        _ble_thread.start()
+        logging.info("CatPrinter BLE thread started")
+    return _printer_instance
+
+
+def _run_ble_loop():
+    """Run the BLE event loop in a background thread."""
+    global _printer_instance
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(_printer_instance.connect_and_send())
+    except Exception as e:
+        logging.error(f"BLE loop error: {e}")
+
+
+# Module-level Flask routes for Gunicorn
+@app.route("/", methods=['GET', 'POST'])
+def http_server_upload():
+    """Handle POST requests to receive text and add to the printer queue.
+    Handle GET requests to provide the printer status and settings."""
+    printer = get_printer()
+    if request.method == 'POST':
+        data = request.get_json()
+        text = data.get("text") if data else None
+        logging.info(f"Received print request: {text[:100] if text else 'None'}...")
+        if text is not None:
+            printer.text_queue.append(text)
+            return "Sent to printer queue"
+        else:
+            return "Nothing :("
+    else:
+        return jsonify({
+            "transmit": printer.transmit,
+            "ready": printer.ready,
+            "address": printer.device.address if printer.device else None,
+            "status": printer.status
+        })
+
+
 class CatPrinter:
-    def __init__(self, printer_name='MX06', printer_mac='A7:09:08:1B:58:69'):
+    def __init__(self, printer_name='MX06', printer_mac='A7:09:08:1B:58:69', start_services=True):
         # Initialize the CatPrinter class with default printer name and MAC address.
         # Set up various properties for managing the printer connection and queues for images and text.
         self.printer_name = printer_name
@@ -40,16 +93,16 @@ class CatPrinter:
         self.status = {}
         self.image_queue = []
         self.text_queue = []
-        self.app = Flask(__name__)
-
-        # Setup Flask routes for handling HTTP requests.
-        self.setup_routes()
-
-        # Start Flask server in a new thread to handle incoming HTTP requests asynchronously.
-        threading.Thread(target=self.start_flask_server).start()
-
-        # Start the main async loop to handle BLE operations with the printer.
-        asyncio.run(self.main())
+        
+        # Only start services if requested (not when used as Gunicorn module)
+        if start_services:
+            self.app = Flask(__name__)
+            # Setup Flask routes for handling HTTP requests.
+            self.setup_routes()
+            # Start Flask server in a new thread to handle incoming HTTP requests asynchronously.
+            threading.Thread(target=self.start_flask_server).start()
+            # Start the main async loop to handle BLE operations with the printer.
+            asyncio.run(self.main())
 
     def setup_routes(self):
         # Define HTTP routes for the Flask application.
@@ -129,6 +182,9 @@ class CatPrinter:
         
         # Continuously try to connect to the printer and send queued images and text.
         while True:
+            # FIX: Mandatory cool-down to prevent BlueZ "In Progress" loops
+            await asyncio.sleep(2)
+            
             try:
                 logging.info("Attempting to connect to the printer")
                 scanner = BleakScanner(detection_callback=self.detect_printer)
@@ -137,19 +193,30 @@ class CatPrinter:
                     await asyncio.sleep(0.1)
                     if self.device:
                         break
-                await scanner.stop()
+                
+                # FIX: Wrap stop() in try-except to avoid crashing if already stopped
+                try:
+                    await scanner.stop()
+                except Exception as stop_e:
+                    logging.warning(f"Scanner stop ignored: {stop_e}")
 
                 if not self.device:
                     raise BleakError(f"No device named {self.printer_name} or MAC {self.printer_mac} could be found.")
+                
                 async with BleakClient(self.device) as client:
                     await client.start_notify(self.NotifyCharacteristic, self.notification_handler)
                     logging.info("Printer ready")
+                    
+                    # FIX: Reset retry count on successful connection
+                    retry_count = 0 
+                    
                     while True:
                         while not self.ready and not self.awaiting_status:
                             logging.debug("Awaiting printer status")
                             self.awaiting_status = True
                             await client.write_gatt_char(self.PrinterCharacteristic, self.formatMessage(self.GetDevState, [0x00]) + self.formatMessage(self.ControlLattice, self.FinishLattice))
                             await asyncio.sleep(0.5)
+                        
                         if self.text_queue:
                             text = self.text_queue.pop(0)
                             if text:
@@ -170,13 +237,18 @@ class CatPrinter:
                             logging.debug("Idle state - no data to print")
                             await asyncio.sleep(1)  # Increase idle sleep time
 
-                retry_count = 0  # Reset retry_count on successful connection
-
             except Exception as e:
                 self.ready = False
                 logging.error(f"Exception in connect_and_send: {e}")
                 traceback.print_exc(file=sys.stdout)
-                await asyncio.sleep(min(5 * retry_count, 60))  # Exponential backoff up to 60 seconds
+                
+                # FIX: Increment retry_count so logic works
+                retry_count += 1
+                
+                # Exponential backoff
+                wait_time = min(5 * retry_count, 60)
+                logging.info(f"Retrying connection in {wait_time} seconds (Attempt {retry_count})...")
+                await asyncio.sleep(wait_time)
 
     def drawTestPattern(self, image_data, feed_amount=0, energy=0x2EE0):
         # Prepare a test pattern or image data for printing, including paper feed commands.

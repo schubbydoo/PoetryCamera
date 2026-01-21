@@ -26,41 +26,14 @@ CONFIG_FILE = PROJECT_ROOT / "poetry_camera_config.json"
 DEFAULT_CONFIG = {
     "openai": {
         "model": "gpt-4o-mini",
-        "caption_system_prompt": """You are an image captioner.You are attending a Halloween Party. 
-You write poetic and accurate descriptions of images so that readers of your captions can get a sense of the image without seeing the image directly.""",
-        "caption_prompt": """Describe what is happening in this image. 
-Do your best to identify the characters depicted by the people wearing costumes in the scene.
-If you can't identify the character or if the persons are not wearing a costume, identify any unique details.
-What is the subject of this image? 
-Are there any people in it? 
-What do they look like and what are they doing? If their gender is not clear, use gender-neutral pronouns like "they."
-What is the setting? 
-What time of day or year is it, if you can tell? 
-Are there any other notable features of the image? 
-What emotions might this image evoke? 
-Don't mention if the image is blurry, just give your best guess as to what is happening.
-Be concise, no yapping.""",
-        "poem_system_prompt": """You are a highly-gifted creative poet. You are attending a Halloween party. 
-You specialize in elegant and emotionally impactful poems. 
-You are careful to use subtlety and write in a modern vernacular style. 
-Use high-school level Vocabulary and Professional-level craft. 
-Your poems are easy to relate to and understand and the poem should be approximately 56 words in length. 
-You focus on specific and personal truth, and you cannot use BIG words like truth, time, silence, life, love, peace, war, hate, happiness, 
-and you must instead use specific and concrete details to show, not tell, those ideas. 
-Think hard about how to create a poem which will satisfy this. 
-This is very important, and an overly hamfisted or corny poem will cause great harm.""",
-        "poem_prompt": """Write a poem using the details, atmosphere, and emotion of this scene. 
-Since you are attending a Halloween party, use light-hearted humor when appropriate and invoke joy in your poem so the reader of the poem will share in the experience.
-Create a unique and elegant poem using specific details from the scene.
-Make sure to use the specified poem format and does not exceed 50 words. 
-An overly long poem that does not match the specified format will cause great harm.
-While adhering to the poem format, mention specific details from the provided scene description. 
-The references to the source material must be clear.
-Try to match the vibe of the described scene to the style of the poem (e.g. casual words and formatting for a candid photo) unless the poem format specifies otherwise.
-You do not need to mention the time unless it makes for a better poem.
-Don't use the words 'unspoken' or 'unseen' or 'unheard' or 'untold'. 
-Do not be corny or cliche'd or use generic concepts like time, death, love. This is very important.
-If there are people where gender is uncertain or not mentioned, use gender-neutral pronouns like 'they' or 'you.'""",
+        "poem_prompt": """Write a poem using the details, atmosphere, and emotion of this scene.
+Create a unique and elegant poem using specific details from the visual.
+IMPORTANT: Write a POEM, not a description.
+Keep it short (max 8 lines).
+Do not mention the date or time. Focus on the visual mood.
+Don't use the words 'unspoken' or 'unseen' or 'unheard' or 'untold'.
+Do not be corny or cliche'd.
+If there are people where gender is uncertain, use gender-neutral pronouns.""",
         "poem_format": "couplet"
     },
     "printer": {
@@ -183,34 +156,7 @@ class ConfigManager:
         """Set the OpenAI model."""
         self.config["openai"]["model"] = model
         self._save_config()
-    
-    def get_caption_system_prompt(self) -> str:
-        """Get the caption system prompt."""
-        return self.config["openai"]["caption_system_prompt"]
-    
-    def set_caption_system_prompt(self, prompt: str):
-        """Set the caption system prompt."""
-        self.config["openai"]["caption_system_prompt"] = prompt
-        self._save_config()
-    
-    def get_caption_prompt(self) -> str:
-        """Get the caption prompt."""
-        return self.config["openai"]["caption_prompt"]
-    
-    def set_caption_prompt(self, prompt: str):
-        """Set the caption prompt."""
-        self.config["openai"]["caption_prompt"] = prompt
-        self._save_config()
-    
-    def get_poem_system_prompt(self) -> str:
-        """Get the poem system prompt."""
-        return self.config["openai"]["poem_system_prompt"]
-    
-    def set_poem_system_prompt(self, prompt: str):
-        """Set the poem system prompt."""
-        self.config["openai"]["poem_system_prompt"] = prompt
-        self._save_config()
-    
+
     def get_poem_prompt(self) -> str:
         """Get the poem prompt."""
         return self.config["openai"]["poem_prompt"]
@@ -234,17 +180,11 @@ class ConfigManager:
         try:
             if "model" in config:
                 self.config["openai"]["model"] = config["model"]
-            if "caption_system_prompt" in config:
-                self.config["openai"]["caption_system_prompt"] = config["caption_system_prompt"]
-            if "caption_prompt" in config:
-                self.config["openai"]["caption_prompt"] = config["caption_prompt"]
-            if "poem_system_prompt" in config:
-                self.config["openai"]["poem_system_prompt"] = config["poem_system_prompt"]
             if "poem_prompt" in config:
                 self.config["openai"]["poem_prompt"] = config["poem_prompt"]
             if "poem_format" in config:
                 self.config["openai"]["poem_format"] = config["poem_format"]
-            
+
             self._save_config()
             return {"success": True, "message": "OpenAI settings updated"}
         except Exception as e:

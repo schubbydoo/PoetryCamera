@@ -22,6 +22,11 @@ PROJECT_ROOT = Path(__file__).parent.parent
 class SystemManager:
     """Manages system operations for Poetry Camera."""
     
+    # Shorter timeouts for Pi Zero 2W performance
+    CMD_TIMEOUT_SHORT = 3
+    CMD_TIMEOUT_MEDIUM = 5
+    CMD_TIMEOUT_LONG = 30
+    
     def __init__(self):
         self.project_root = PROJECT_ROOT
         self.version_file = self.project_root / "VERSION"
@@ -46,10 +51,12 @@ class SystemManager:
                 cwd=self.project_root,
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=self.CMD_TIMEOUT_SHORT
             )
             if result.returncode == 0:
                 return result.stdout.strip()
+            return "unknown"
+        except subprocess.TimeoutExpired:
             return "unknown"
         except Exception as e:
             logger.error(f"Error getting git commit: {e}")
@@ -63,7 +70,7 @@ class SystemManager:
                 cwd=self.project_root,
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=self.CMD_TIMEOUT_SHORT
             )
             if result.returncode == 0:
                 # Parse and format the date
@@ -73,6 +80,8 @@ class SystemManager:
                     return dt.strftime("%B %d, %Y at %H:%M")
                 except:
                     return date_str
+            return "unknown"
+        except subprocess.TimeoutExpired:
             return "unknown"
         except Exception as e:
             logger.error(f"Error getting last updated: {e}")
@@ -236,14 +245,14 @@ class SystemManager:
         
         # Get hostname
         try:
-            result = subprocess.run(["hostname"], capture_output=True, text=True, timeout=5)
+            result = subprocess.run(["hostname"], capture_output=True, text=True, timeout=self.CMD_TIMEOUT_SHORT)
             info["hostname"] = result.stdout.strip() if result.returncode == 0 else "unknown"
         except:
             info["hostname"] = "unknown"
         
         # Get uptime
         try:
-            result = subprocess.run(["uptime", "-p"], capture_output=True, text=True, timeout=5)
+            result = subprocess.run(["uptime", "-p"], capture_output=True, text=True, timeout=self.CMD_TIMEOUT_SHORT)
             info["uptime"] = result.stdout.strip() if result.returncode == 0 else "unknown"
         except:
             info["uptime"] = "unknown"

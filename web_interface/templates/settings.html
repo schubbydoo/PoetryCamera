@@ -126,25 +126,26 @@
         
         <div class="field">
             <label class="label">Model</label>
-            <div class="control">
-                <div class="select is-fullwidth">
-                    <select id="openai-model">
-                        <option value="gpt-4o-mini" {% if openai_config.model == 'gpt-4o-mini' %}selected{% endif %}>
-                            GPT-4o Mini (Recommended - Fast & Affordable)
-                        </option>
-                        <option value="gpt-4o" {% if openai_config.model == 'gpt-4o' %}selected{% endif %}>
-                            GPT-4o (Best Quality)
-                        </option>
-                        <option value="gpt-4-turbo" {% if openai_config.model == 'gpt-4-turbo' %}selected{% endif %}>
-                            GPT-4 Turbo
-                        </option>
-                        <option value="gpt-3.5-turbo" {% if openai_config.model == 'gpt-3.5-turbo' %}selected{% endif %}>
-                            GPT-3.5 Turbo (Fastest)
-                        </option>
-                    </select>
-                </div>
+            <div class="control has-icons-left">
+                <input class="input" type="text" id="openai-model" 
+                       value="{{ openai_config.model }}" 
+                       list="model-suggestions"
+                       placeholder="e.g., gpt-4o-mini">
+                <span class="icon is-small is-left">
+                    <i class="fas fa-robot"></i>
+                </span>
+                <datalist id="model-suggestions">
+                    <option value="gpt-4o-mini">GPT-4o Mini (Recommended)</option>
+                    <option value="gpt-4o">GPT-4o (Best Quality)</option>
+                    <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                    <option value="gpt-4.1-mini">GPT-4.1 Mini</option>
+                    <option value="gpt-4.1">GPT-4.1</option>
+                    <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                    <option value="o1-mini">O1 Mini</option>
+                    <option value="o1">O1</option>
+                </datalist>
             </div>
-            <p class="help">Select the OpenAI model for generating captions and poems</p>
+            <p class="help">Enter any OpenAI model name (e.g., gpt-4o-mini, gpt-5-nano-2025-08-07)</p>
         </div>
         
         <div class="field">
@@ -169,63 +170,41 @@
 <div id="prompts-tab" class="tab-content" style="display: none;">
     <div class="notification is-info is-light">
         <span class="icon"><i class="fas fa-lightbulb"></i></span>
-        <strong>Tip:</strong> These prompts control how the AI describes images and writes poetry. 
+        <strong>Tip:</strong> This prompt controls how the AI generates poetry from images.
+        The AI looks at the photo and writes a poem based on what it sees.
         Modify carefully - small changes can significantly affect the output.
     </div>
-    
-    <!-- Caption System Prompt -->
-    <div class="box">
-        <h2 class="title is-5">Caption System Prompt</h2>
-        <p class="help mb-3">Sets the AI's role/persona for describing images</p>
-        <div class="field">
-            <div class="control">
-                <textarea class="textarea" id="caption-system-prompt" rows="6">{{ openai_config.caption_system_prompt }}</textarea>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Caption Prompt -->
-    <div class="box">
-        <h2 class="title is-5">Caption Prompt</h2>
-        <p class="help mb-3">Instructions for what to describe in the image</p>
-        <div class="field">
-            <div class="control">
-                <textarea class="textarea" id="caption-prompt" rows="10">{{ openai_config.caption_prompt }}</textarea>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Poem System Prompt -->
-    <div class="box">
-        <h2 class="title is-5">Poem System Prompt</h2>
-        <p class="help mb-3">Sets the AI's role/persona for writing poetry</p>
-        <div class="field">
-            <div class="control">
-                <textarea class="textarea" id="poem-system-prompt" rows="8">{{ openai_config.poem_system_prompt }}</textarea>
-            </div>
-        </div>
-    </div>
-    
+
     <!-- Poem Prompt -->
     <div class="box">
-        <h2 class="title is-5">Poem Prompt</h2>
-        <p class="help mb-3">Instructions for how to write the poem</p>
+        <h2 class="title is-5">
+            <span class="icon"><i class="fas fa-pen-fancy"></i></span>
+            Poem Generation Prompt
+        </h2>
+        <p class="help mb-3">
+            Instructions sent to the AI along with the image. The AI will analyze the image and write a poem based on these instructions.
+            The poem format setting (in AI Settings tab) will be automatically included.
+        </p>
         <div class="field">
             <div class="control">
-                <textarea class="textarea" id="poem-prompt" rows="12">{{ openai_config.poem_prompt }}</textarea>
+                <textarea class="textarea" id="poem-prompt" rows="15">{{ openai_config.poem_prompt }}</textarea>
             </div>
         </div>
+        <p class="help has-text-grey mt-2">
+            <strong>How it works:</strong> When you take a photo, the image is sent to OpenAI's vision model along with this prompt.
+            The AI analyzes what it sees and generates a poem in one step.
+        </p>
     </div>
-    
+
     <div class="field">
         <div class="buttons">
             <button class="button is-primary" id="btn-save-prompts">
                 <span class="icon"><i class="fas fa-save"></i></span>
-                <span>Save All Prompts</span>
+                <span>Save Prompt</span>
             </button>
             <button class="button is-warning is-outlined" id="btn-reset-prompts">
                 <span class="icon"><i class="fas fa-undo"></i></span>
-                <span>Reset to Defaults</span>
+                <span>Reset to Default</span>
             </button>
         </div>
     </div>
@@ -243,7 +222,7 @@
             <button class="delete" aria-label="close"></button>
         </header>
         <section class="modal-card-body">
-            <p>Are you sure you want to reset all prompts to their default values?</p>
+            <p>Are you sure you want to reset the poem prompt to its default value?</p>
             <p class="has-text-grey mt-2">This cannot be undone.</p>
         </section>
         <footer class="modal-card-foot">

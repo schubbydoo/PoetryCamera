@@ -104,26 +104,23 @@ async function saveOpenAISettings() {
 
 async function savePrompts() {
     const btn = document.getElementById('btn-save-prompts');
-    
+
     const config = {
-        caption_system_prompt: document.getElementById('caption-system-prompt').value,
-        caption_prompt: document.getElementById('caption-prompt').value,
-        poem_system_prompt: document.getElementById('poem-system-prompt').value,
         poem_prompt: document.getElementById('poem-prompt').value
     };
-    
+
     setButtonLoading(btn, true);
-    
+
     try {
         const result = await apiCall('/api/settings/openai', 'POST', config);
-        
+
         if (result.success) {
-            showNotification('Prompts saved!', 'success');
+            showNotification('Prompt saved!', 'success');
         } else {
-            showNotification(result.error || 'Failed to save prompts', 'danger');
+            showNotification(result.error || 'Failed to save prompt', 'danger');
         }
     } catch (error) {
-        showNotification('Error saving prompts: ' + error.message, 'danger');
+        showNotification('Error saving prompt: ' + error.message, 'danger');
     } finally {
         setButtonLoading(btn, false);
     }

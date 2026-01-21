@@ -2,307 +2,196 @@
 # Poetry Camera Main Application
 # Captures images, generates AI poetry, and prints to thermal printer
 
-# Import necessary libraries and modules for the application.
 import requests, signal, os, base64, subprocess, threading
-from picamera2 import Picamera2, Preview
-from libcamera import controls
+from picamera2 import Picamera2
 from gpiozero import LED, Button
-from wraptext import *
 from datetime import datetime
 from dotenv import load_dotenv
 from openai import OpenAI
 from time import time, sleep
-from printer.scripts.cat_printer import CatPrinter, app
 import logging
-import asyncio
 
-# Import configuration manager for dynamic settings
+# Import configuration manager
 from web_interface.config_manager import config_manager
 
-# Setup basic configuration for logging
+# Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Use logging in your application
 logging.info("Server starting")
 logging.info("Connecting to printer")
 
-
-def get_caption_system_prompt():
-    """Get caption system prompt from config."""
-    return config_manager.get_caption_system_prompt()
-
-
-def get_caption_prompt():
-    """Get caption prompt from config."""
-    return config_manager.get_caption_prompt()
-
-
+# --- Config Getters ---
 def get_poem_system_prompt():
-    """Get poem system prompt from config."""
     return config_manager.get_poem_system_prompt()
 
-
 def get_poem_prompt():
-    """Get poem prompt (base) from config."""
     return config_manager.get_poem_prompt()
 
-
 def get_poem_format():
-    """Get poem format from config."""
     return config_manager.get_poem_format()
 
-
 def get_openai_model():
-    """Get OpenAI model from config."""
     return config_manager.get_openai_model()
 
-
-async def connect_printer():
-    try:
-        await printer.connect_and_send()
-        logging.info("Printer connected")
-    except Exception as e:
-        logging.error(f"Failed to connect to printer: {e}")
-
-
 def initialize():
-    # Load environment variables
     load_dotenv()
 
     # Set up OpenAI client
     global openai_client
     openai_client = OpenAI(api_key=os.environ['OPENAI_API_KEY'])
 
-    # Set up camera
+    # Set up camera (Lazily initialized later to save CPU)
     global picam2, camera_at_rest
     picam2 = Picamera2()
-    picam2.start()
-    sleep(2)  # camera warm-up time
-
-    # prevent double-click bugs by checking whether the camera is resting
-    # (i.e. not in the middle of the whole photo-to-poem process):
+    
+    # prevent double-click bugs
     camera_at_rest = True
 
     # Set up shutter button & status LED
     global shutter_button, led
     shutter_button = Button(16)
     led = LED(20)
-    led.on()
+    
+    # Initial state
+    safe_led_on()
 
     # button event handlers
     shutter_button.when_pressed = on_press
     shutter_button.when_released = on_release
 
-    # Instantiate 'CatPrinter' and ensure global accessibility
-    global printer
-    printer = CatPrinter()  # Initialize the CatPrinter class
+    logging.info("Main application ready")
 
-    # Connect to printer asynchronously
-    asyncio.run(connect_printer())
-
-    # Run Flask in a separate thread
-    from threading import Thread
-
-    # Continue with main application logic
-    logging.info("Main application continues to run")
-
-    # Simulate setting up a callback for receiving printer status
-    def setup_printer_callbacks():
-        # This is a placeholder for setting up actual Bluetooth event callbacks
+# --- Helper functions to prevent gpiozero crashes ---
+def safe_led_on():
+    try:
+        led.on()
+    except RuntimeError:
         pass
 
-    setup_printer_callbacks()
+def safe_led_off():
+    try:
+        led.off()
+    except RuntimeError:
+        pass
 
-
-def on_printer_status_received(status):
-    logging.info(f"Printer status received: {status}")
-    # Handle status
-
+def safe_led_blink(on_time=1, off_time=1):
+    try:
+        led.blink(on_time=on_time, off_time=off_time)
+    except RuntimeError:
+        pass
 
 #############################
 # CORE PHOTO-TO-POEM FUNCTION
 #############################
-# Called when shutter button is pressed
 def take_photo_and_print_poem():
-    # prevent double-clicks by indicating camera is active
     global camera_at_rest
     camera_at_rest = False
+    
+    # blink LED to show activity
+    safe_led_blink(on_time=0.2, off_time=0.2)
 
-    # blink LED in a background thread
-    led.blink()
-
-    # Directory where the image will be saved
     image_dir = '/home/shschubert/PoetryCamera/ImageStore/'
-    # Create the directory if it doesn't exist
     os.makedirs(image_dir, exist_ok=True)
-    # Define photo_filename here
     photo_filename = os.path.join(image_dir, 'image.jpg')
-    # Take photo & save it
-    metadata = picam2.capture_file(photo_filename)
 
-    # FOR DEBUGGING: note that image has been saved
-    print('----- SUCCESS: image saved locally')
+    # Start camera only when needed to save CPU/Heat
+    try:
+        picam2.start()
+        sleep(1.0) # Warmup
+        picam2.capture_file(photo_filename)
+        picam2.stop()
+        print('----- SUCCESS: image saved locally')
+    except Exception as e:
+        print(f"Camera Error: {e}")
+        safe_led_on()
+        camera_at_rest = True
+        return
 
     print_header()
 
     #########################
-    # Send saved image to API
+    # Single-Step Generation
     #########################
     try:
         base64_image = encode_image(photo_filename)
-
-        # Get current model and prompts from config
         model = get_openai_model()
-        caption_system_prompt = get_caption_system_prompt()
-        caption_prompt = get_caption_prompt()
+        
+        poem_base = get_poem_prompt()
+        poem_format = get_poem_format()
+        
+        # AGGRESSIVE PROMPT for speed and brevity
+        final_user_prompt = (
+            f"{poem_base}\n"
+            f"Style: {poem_format}\n"
+            "IMPORTANT: Write a POEM, not a description. \n"
+            "Keep it short (max 8 lines). \n"
+            "Do not mention the date or time. Focus on the visual mood."
+        )
 
-        # Image to caption
-        caption_response = openai_client.chat.completions.create(
+        print("Sending image to AI...")
+        
+        # Note: 'max_tokens' is removed to support o1 models
+        response = openai_client.chat.completions.create(
             model=model,
-            messages=[{
-                "role": "system",
-                "content": caption_system_prompt
-            }, {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": caption_prompt},
-                    {"type": "image_url", "image_url": {
-                        "url": f"data:image/png;base64,{base64_image}"}
-                     }]
-            }])
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": final_user_prompt},
+                        {
+                            "type": "image_url", 
+                            "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}
+                        }
+                    ]
+                }
+            ]
+        )
 
-        # extract poem from full API response
-        image_caption = caption_response.choices[0].message.content
-        print("image caption:", image_caption)
-
-        # Generate our prompt for GPT
-        prompt = generate_prompt(image_caption)
+        poem = response.choices[0].message.content
+        print_poem(poem)
 
     except Exception as e:
         error_message = str(e)
-        print("Error during image captioning: ", error_message)
-        print_poem(
-            f"Alas, something went wrong.\n\nTechnical details:\n Error while recognizing image. {error_message}")
-        print_poem("\n\nTroubleshooting:")
-        print_poem("1. Check your wifi connection.")
-        print_poem(
-            "2. Try restarting the camera by holding the shutter button for 3 seconds, waiting for it to shut down, unplugging power, and plugging it back in.")
-        print_poem("3. You may just need to wait a bit and it will pass.")
-        print_footer()
-        led.on()
+        print("Error during generation: ", error_message)
+        print_poem(f"Alas, the muses are silent.\n(Error: {error_message[:50]}...)")
+        safe_led_on()
         camera_at_rest = True
         return
-
-    try:
-        # Get current model and prompts from config
-        model = get_openai_model()
-        poem_system_prompt = get_poem_system_prompt()
-
-        # Image caption to poem
-        poem_response = openai_client.chat.completions.create(
-            model=model,
-            messages=[{
-                "role": "system",
-                "content": poem_system_prompt
-            }, {
-                "role": "user",
-                "content": prompt
-            }])
-
-        # extract poem from full API response
-        poem = poem_response.choices[0].message.content
-
-    except Exception as e:
-        error_message = str(e)
-        print("Error during poem generation: ", error_message)
-        print_poem(f"Alas, something went wrong.\n\n.Technical details:\n Error while writing poem. {error_message}")
-        print_poem("\n\nTroubleshooting:")
-        print_poem("1. Check your Wifi Network and Password.")
-        print_poem(
-            "2. To set the Wifi Network and Password, hold the shutter button for 10s, connect to PoetCam with password, ThePoeteer, hit save.")
-        print_poem("3. Try again. The internet is big and sometimes it needs time to reroute information.")
-        print_footer()
-        led.on()
-        camera_at_rest = True
-        return
-
-    print_poem(poem)
 
     print_footer()
-
-    led.on()
-
-    # camera back at rest, available to listen to button clicks again
+    safe_led_on()
     camera_at_rest = True
-
     return
 
 
-# Function to encode the image as base64 for gpt4v api request
 def encode_image(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode('utf-8')
-
-
-#######################
-# Generate full poem prompt from caption
-#######################
-def generate_prompt(image_description):
-    # Get poem prompt base from config
-    poem_prompt_base = get_poem_prompt()
-    
-    # prompt what type of poem to write
-    prompt_format = "Poem format: " + get_poem_format() + "\n\n"
-
-    # prompt what image to describe
-    prompt_scene = "Scene description: " + image_description + "\n\n"
-
-    # time
-    formatted_time = datetime.now().strftime("%H:%M on %B %d, %Y")
-    prompt_time = "Scene date and time: " + formatted_time + "\n\n"
-
-    # stitch together full prompt
-    prompt = poem_prompt_base + "\n\n" + prompt_format + prompt_scene + prompt_time
-
-    # idk how to remove the brackets and quotes from the prompt
-    # via custom filters so i'm gonna remove via this janky code lol
-    prompt = prompt.replace("[", "").replace("]", "").replace("{", "").replace(
-        "}", "").replace("'", "")
-
-    return prompt
 
 
 ###########################
 # PRINTER FUNCTIONS
 ###########################
 def print_poem(poem):
-    global camera_at_rest
-    camera_at_rest = False
-    led.off()
-    led.on()
+    safe_led_off()
 
     try:
-        # Append the footer text to the poem
+        # Re-adding the footer here to fix the missing footer bug
         current_date = datetime.now().strftime("%B %d, %Y")
         footer_text = f"\n\nWritten by The Poeteer, {current_date}"
-        full_poem = poem + footer_text
+        full_text = poem + footer_text
 
-        # Print for debugging
         print('--------POEM BELOW-------')
-        print(full_poem)
+        print(full_text)
         print('------------------')
 
-        # Send the poem text to the cat_printer.py server
-        response = requests.post("http://127.0.0.1:5002", json={"text": full_poem})
+        # Sending full_text ensures the footer prints
+        response = requests.post("http://127.0.0.1:5002", json={"text": full_text})
         print(f"Printer response: {response.text}")
 
-        led.off()
-
     except Exception as e:
-        print(f"An error occurred: {e}")
-        led.off()
-
-    camera_at_rest = True
+        print(f"Printer connection error: {e}")
+    
     return
 
 
@@ -317,67 +206,39 @@ def print_footer():
 #################
 # Button handlers
 #################
-
 def on_press():
-    # track when button was pressed
     global press_time
     press_time = time()
-
-    led.off()
-
+    # FIX: Use safe wrapper to prevent threading crash
+    if camera_at_rest:
+        safe_led_off()
 
 def on_release():
-    # calculate how long button was pressed
     global press_time
     release_time = time()
-
-    led.on()
-
+    # FIX: Use safe wrapper
+    safe_led_on() 
+    
     duration = release_time - press_time
 
-    # if user clicked button
-    # the > 0.05 check is to make sure we aren't accidentally capturing contact bounces
-    # https://www.allaboutcircuits.com/textbook/digital/chpt-4/contact-bounce/
     if duration > 0.05 and duration < 2:
         if camera_at_rest:
-            take_photo_and_print_poem()
+            threading.Thread(target=take_photo_and_print_poem).start()
         else:
-            print("ignoring double click while poem is printing")
-    elif duration > 9:  # if user held button
+            print("Busy: ignoring click")
+    elif duration > 9:
         run_ap_activate()
 
-
 def shutdown():
-    # Define what should happen when the system is shut down
-    print("Shutting down the system...")
+    print("Shutting down...")
     os.system("sudo shutdown now")
 
-
-####### Start Wifi Settings change after >9 second button push ###
 def run_ap_activate():
     try:
         subprocess.run(["python3", "/home/shschubert/PoetryCamera/network-setup/ap_activate.py"], check=True)
     except subprocess.CalledProcessError as e:
         print(f"Failed to run ap_activate.py: {e}")
 
-
-# Main function
 if __name__ == "__main__":
     initialize()
-    # Keep script running to listen for button presses
     signal.pause()
-
-
-async def main():
-    await connect_printer()
-    # Continue with other tasks
-
-
-# Example of a non-blocking loop
-async def check_printer_status_periodically():
-    while True:
-        logging.info("Checking printer status...")
-        await asyncio.sleep(10)  # Non-blocking wait
-
-
-asyncio.run(check_printer_status_periodically())

@@ -6,13 +6,13 @@
 <div class="box welcome-box mb-5">
     <div class="columns is-vcentered">
         <div class="column is-narrow">
-            <span class="icon is-large has-text-primary">
+            <span class="icon is-large">
                 <i class="fas fa-3x fa-camera-retro"></i>
             </span>
         </div>
         <div class="column">
             <h1 class="title is-4">Poetry Camera</h1>
-            <p class="subtitle is-6 has-text-grey">
+            <p class="subtitle is-6">
                 Capture moments, create poetry. Your camera transforms photos into elegant poems using AI.
             </p>
         </div>
@@ -140,11 +140,17 @@
                                 <span class="icon"><i class="fas fa-check"></i></span>
                                 <span>Connected</span>
                             </span>
+                            {% elif printer_status.address %}
+                            <span class="tag is-info is-light">
+                                <span class="icon"><i class="fas fa-bluetooth-b"></i></span>
+                                <span>Service Running</span>
+                            </span>
                             {% else %}
                             <span class="tag is-warning is-light">
                                 <span class="icon"><i class="fas fa-exclamation-triangle"></i></span>
-                                <span>Disconnected</span>
+                                <span>Service Not Running</span>
                             </span>
+                            <p class="help is-warning mt-1">Start via startup.sh or run printer service manually</p>
                             {% endif %}
                         </td>
                     </tr>

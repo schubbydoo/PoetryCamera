@@ -10,6 +10,7 @@ import uuid
 import os
 import re
 import logging
+import time
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -17,6 +18,16 @@ logger = logging.getLogger(__name__)
 
 class WiFiManager:
     """Manages WiFi operations using NetworkManager."""
+    
+    # Shorter timeouts for Pi Zero 2W performance
+    CMD_TIMEOUT_SHORT = 3  # Quick commands
+    CMD_TIMEOUT_MEDIUM = 5  # Normal commands
+    CMD_TIMEOUT_LONG = 15  # Network operations
+    
+    # Cache for AP mode to avoid repeated slow checks
+    _ap_mode_cache = None
+    _ap_mode_cache_time = 0
+    AP_MODE_CACHE_TTL = 30  # Cache for 30 seconds
     
     def __init__(self):
         self.interface = "wlan0"
@@ -30,7 +41,7 @@ class WiFiManager:
                 ["iwgetid", "-r"],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=self.CMD_TIMEOUT_SHORT
             )
             ssid = result.stdout.strip() if result.returncode == 0 else None
             
@@ -39,7 +50,7 @@ class WiFiManager:
                 ["hostname", "-I"],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=self.CMD_TIMEOUT_SHORT
             )
             ip_addresses = ip_result.stdout.strip().split()
             ip_address = ip_addresses[0] if ip_addresses else None
@@ -48,6 +59,13 @@ class WiFiManager:
                 "connected": ssid is not None and ssid != "",
                 "ssid": ssid,
                 "ip_address": ip_address
+            }
+        except subprocess.TimeoutExpired:
+            logger.warning("Connection check timed out")
+            return {
+                "connected": False,
+                "ssid": None,
+                "ip_address": None
             }
         except Exception as e:
             logger.error(f"Error getting current connection: {e}")
@@ -58,16 +76,34 @@ class WiFiManager:
             }
     
     def is_ap_mode(self):
-        """Check if device is currently in AP mode."""
+        """Check if device is currently in AP mode (with caching)."""
+        # Use cached value if recent enough
+        current_time = time.time()
+        if (WiFiManager._ap_mode_cache is not None and 
+            current_time - WiFiManager._ap_mode_cache_time < WiFiManager.AP_MODE_CACHE_TTL):
+            return WiFiManager._ap_mode_cache
+        
         try:
             result = subprocess.run(
-                ["nmcli", "-t", "-f", "NAME,TYPE", "connection", "show", "--active"],
+                ["nmcli", "-t", "-f", "NAME", "connection", "show", "--active"],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=self.CMD_TIMEOUT_SHORT
             )
             # Check if PoetCam AP connection is active
-            return self.ap_connection_name in result.stdout
+            is_ap = self.ap_connection_name in result.stdout
+            
+            # Update cache
+            WiFiManager._ap_mode_cache = is_ap
+            WiFiManager._ap_mode_cache_time = current_time
+            
+            return is_ap
+        except subprocess.TimeoutExpired:
+            # On timeout, assume not in AP mode to keep UI responsive
+            logger.warning("AP mode check timed out, assuming not in AP mode")
+            WiFiManager._ap_mode_cache = False
+            WiFiManager._ap_mode_cache_time = current_time
+            return False
         except Exception as e:
             logger.error(f"Error checking AP mode: {e}")
             return False
@@ -76,11 +112,11 @@ class WiFiManager:
         """Scan for available WiFi networks."""
         networks = []
         try:
-            # Rescan WiFi
+            # Rescan WiFi (don't wait for it)
             subprocess.run(
                 ["sudo", "nmcli", "device", "wifi", "rescan"],
                 capture_output=True,
-                timeout=30
+                timeout=self.CMD_TIMEOUT_MEDIUM
             )
             
             # Get list of networks
@@ -90,7 +126,7 @@ class WiFiManager:
                 text=True,
                 encoding='utf-8',
                 errors='ignore',
-                timeout=30
+                timeout=self.CMD_TIMEOUT_LONG
             )
             
             seen_ssids = set()
@@ -125,7 +161,7 @@ class WiFiManager:
                 ["nmcli", "-t", "-f", "NAME,TYPE,AUTOCONNECT", "connection", "show"],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=self.CMD_TIMEOUT_MEDIUM
             )
             
             for line in result.stdout.strip().split('\n'):
@@ -154,7 +190,7 @@ class WiFiManager:
             existing = subprocess.run(
                 ["nmcli", "connection", "show", connection_name],
                 capture_output=True,
-                timeout=10
+                timeout=self.CMD_TIMEOUT_SHORT
             )
             
             if existing.returncode == 0:
@@ -163,13 +199,13 @@ class WiFiManager:
                     ["sudo", "nmcli", "connection", "modify", connection_name,
                      "wifi-sec.psk", password],
                     check=True,
-                    timeout=30
+                    timeout=self.CMD_TIMEOUT_MEDIUM
                 )
                 result = subprocess.run(
                     ["sudo", "nmcli", "connection", "up", connection_name],
                     capture_output=True,
                     text=True,
-                    timeout=60
+                    timeout=30
                 )
             else:
                 # Create new connection
@@ -178,7 +214,7 @@ class WiFiManager:
                      "password", password, "name", connection_name],
                     capture_output=True,
                     text=True,
-                    timeout=60
+                    timeout=30
                 )
             
             if result.returncode == 0:
@@ -186,7 +222,7 @@ class WiFiManager:
                 subprocess.run(
                     ["sudo", "nmcli", "connection", "modify", connection_name,
                      "connection.autoconnect", "yes" if autoconnect else "no"],
-                    timeout=10
+                    timeout=self.CMD_TIMEOUT_SHORT
                 )
                 logger.info(f"Successfully connected to {ssid}")
                 return {"success": True, "message": f"Connected to {ssid}"}
@@ -210,7 +246,7 @@ class WiFiManager:
                 ["sudo", "nmcli", "connection", "delete", connection_name],
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=self.CMD_TIMEOUT_MEDIUM
             )
             
             if result.returncode == 0:
@@ -227,11 +263,14 @@ class WiFiManager:
     def activate_ap_mode(self):
         """Activate the PoetCam access point."""
         try:
+            # Clear cache when changing AP mode
+            WiFiManager._ap_mode_cache = None
+            
             result = subprocess.run(
                 ["sudo", "nmcli", "connection", "up", self.ap_connection_name],
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=self.CMD_TIMEOUT_LONG
             )
             
             if result.returncode == 0:
@@ -246,11 +285,14 @@ class WiFiManager:
     def deactivate_ap_mode(self):
         """Deactivate the PoetCam access point."""
         try:
+            # Clear cache when changing AP mode
+            WiFiManager._ap_mode_cache = None
+            
             result = subprocess.run(
                 ["sudo", "nmcli", "connection", "down", self.ap_connection_name],
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=self.CMD_TIMEOUT_LONG
             )
             
             if result.returncode == 0:

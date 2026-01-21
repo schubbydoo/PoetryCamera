@@ -1,100 +1,53 @@
-# Add directories or file patterns to ignore during indexing (e.g. foo/ or *.csv)
-###############################################################################
-# OS / System junk
-###############################################################################
-.DS_Store
-Thumbs.db
-ehthumbs.db
-Desktop.ini
+# .cursorignore for Poetry Camera
+# Files/folders Cursor should NOT index (improves performance)
 
 ###############################################################################
-# Cursor / VS Code / IDE noise
+# Virtual Environment (large, not needed for code understanding)
 ###############################################################################
-.cursor-server/
-.cursor/
-.cursorignore
-.vscode/
-.vSCode/
-.history/
-.cursor-server-log*
-.cursor-remote-*
-.cursor-remote-code.log*
-.cursor-remote-multiplex.*
+poetrycamera-env/
+venv/
+.venv/
+env/
 
 ###############################################################################
-# Python
+# Python Cache
 ###############################################################################
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
-*.egg-info/
 .eggs/
-build/
-dist/
-pip-wheel-metadata/
-.pytest_cache/
-.coverage
-.coverage.*
-htmlcov/
-.mypy_cache/
-.ruff_cache/
-
-# Virtual environments
-venv/
-.venv/
-env/
-poetrycamera-env
-.env/
-.python-version
+*.egg-info/
 
 ###############################################################################
-# Node / JS (Cursor uses Node internally, projects often do too)
+# IDE / Editor
 ###############################################################################
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-.npm/
-.cache/
-.eslintcache
+.cursor/
+.cursor-server/
+.vscode/
+.idea/
+.history/
 
 ###############################################################################
-# Logs & runtime files
+# Logs & Runtime Files
 ###############################################################################
 *.log
-logs/
-*.out
-*.pid
-*.pid.lock
+startup.log
 
 ###############################################################################
-# Temp / cache directories
+# Captured Images (user photos, not code)
 ###############################################################################
-tmp/
-temp/
-.cache/
-.nfs*
-*.swp
-*.swo
-*~
+ImageStore/
 
 ###############################################################################
-# Media & large binaries (adjust as needed)
+# Large Media Files
 ###############################################################################
 *.mp3
 *.wav
-*.ogg
 *.mp4
 *.mov
 *.avi
 *.mkv
-*.jpg
-*.jpeg
-*.png
-*.gif
-*.webp
 
 ###############################################################################
 # Archives
@@ -102,43 +55,38 @@ temp/
 *.zip
 *.tar
 *.tar.gz
-*.tgz
 *.7z
 *.rar
-*.gz
 
 ###############################################################################
-# Raspberry Pi / Linux specifics
+# HTML Guide Files (documentation, not code)
 ###############################################################################
-lost+found/
-core
-core.*
-*.img
-*.iso
+GITHUB_GUIDE.html
+PACKAGE_INSTALLATION_GUIDEv4.html
+POETRY_CAMERA_BOOTUP_SERVICE_GUIDE.html
 
 ###############################################################################
-# Secrets (keep OUT of sync)
+# Backup Files
 ###############################################################################
-*.key
-*.pem
-*.crt
-*.p12
-*.env.local
-*.env.production
-*.env.development
+*.copy
+*.bak
+*.old
+*.orig
 
 ###############################################################################
-# Git junk
+# OS Files
+###############################################################################
+.DS_Store
+Thumbs.db
+
+###############################################################################
+# Git internals (but keep .gitignore visible)
 ###############################################################################
 .git/
-.gitignore
-.gitmodules
-.git-rewrite/
 
 ###############################################################################
-# Optional: project-specific exclusions (uncomment if needed)
+# Secrets
 ###############################################################################
-# static/uploads/
-# data/
-# recordings/
-# captures/
+.env
+*.key
+*.pem
