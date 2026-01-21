@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Code Project Setup Guide</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            color: #7f8c8d;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        h2 {
+            color: #34495e;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #3498db;
+            font-size: 1.8em;
+        }
+
+        h3 {
+            color: #2c3e50;
+            margin-top: 25px;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        p, li {
+            margin-bottom: 12px;
+            color: #555;
+        }
+
+        ul, ol {
+            margin-left: 25px;
+            margin-bottom: 20px;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .info {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .success {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .command-block {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+            position: relative;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+        }
+
+        .command-block code {
+            display: block;
+            white-space: pre;
+            font-size: 0.9em;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: background 0.3s;
+        }
+
+        .copy-btn:hover {
+            background: #2980b9;
+        }
+
+        .copy-btn:active {
+            background: #1abc9c;
+        }
+
+        .copy-btn.copied {
+            background: #27ae60;
+        }
+
+        .step {
+            background: #f8f9fa;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 6px;
+            border-left: 4px solid #3498db;
+        }
+
+        .step-number {
+            display: inline-block;
+            background: #3498db;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 30px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: #3498db;
+            color: white;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background: #f5f5f5;
+        }
+
+        .toc {
+            background: #ecf0f1;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 30px 0;
+        }
+
+        .toc ul {
+            list-style: none;
+            margin-left: 0;
+        }
+
+        .toc li {
+            margin-bottom: 8px;
+        }
+
+        .toc a {
+            color: #2980b9;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .toc a:hover {
+            color: #3498db;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Claude Code Project Setup Guide</h1>
+        <p class="subtitle">Complete guide for setting up new Raspberry Pi projects with Claude Code</p>
+
+        <div class="toc">
+            <h3>Table of Contents</h3>
+            <ul>
+                <li><a href="#overview">1. Overview</a></li>
+                <li><a href="#prerequisites">2. Prerequisites</a></li>
+                <li><a href="#ssh-setup">3. SSH Access Setup for Claude Code</a></li>
+                <li><a href="#github-setup">4. GitHub SSH Setup</a></li>
+                <li><a href="#claude-code-install">5. Installing Claude Code on Raspberry Pi</a></li>
+                <li><a href="#workflow">6. Daily Workflow</a></li>
+                <li><a href="#troubleshooting">7. Troubleshooting</a></li>
+            </ul>
+        </div>
+
+        <h2 id="overview">1. Overview</h2>
+        <p>This guide walks you through setting up a new Raspberry Pi project so Claude Code can work on it remotely via SSH. After setup, Claude can read files, make changes, run commands, and push to GitHub - all without you needing to manually transfer files or run commands.</p>
+
+        <div class="info">
+            <strong>What You'll Accomplish:</strong>
+            <ul>
+                <li>Enable Claude Code to SSH into your Raspberry Pi</li>
+                <li>Enable automatic GitHub pushes from the Pi</li>
+                <li>Install Claude Code on the Pi for autonomous work</li>
+                <li>Set up a seamless development workflow</li>
+            </ul>
+        </div>
+
+        <h2 id="prerequisites">2. Prerequisites</h2>
+        <div class="step">
+            <h3>What You Need:</h3>
+            <ul>
+                <li><strong>Raspberry Pi</strong> - Running and connected to your network</li>
+                <li><strong>SSH enabled</strong> - Already configured on your Pi</li>
+                <li><strong>Network access</strong> - You can reach the Pi via SSH</li>
+                <li><strong>GitHub account</strong> - For code version control</li>
+                <li><strong>Local machine</strong> - Where you run Claude Code CLI</li>
+            </ul>
+        </div>
+
+        <div class="warning">
+            <strong>Important:</strong> Know your Raspberry Pi's IP address. Find it with: <code>hostname -I</code> on the Pi, or check your router's connected devices.
+        </div>
+
+        <h2 id="ssh-setup">3. SSH Access Setup for Claude Code</h2>
+        <p>This allows Claude Code running on your local machine to access your Raspberry Pi without passwords.</p>
+
+        <div class="step">
+            <h3><span class="step-number">1</span>Generate SSH Key on Local Machine (WSL/Linux/Mac)</h3>
+            <p>On your <strong>local machine</strong> where Claude Code runs:</p>
+            <div class="command-block">
+                <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+                <code>ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519_claude -N "" -C "claude-code-wsl-$(hostname)"</code>
+            </div>
+            <p>This creates a passwordless SSH key specifically for Claude Code.</p>
+        </div>
+
+        <div class="step">
+            <h3><span class="step-number">2</span>Display the Public Key</h3>
+            <p>View the public key that needs to be added to your Pi:</p>
+            <div class="command-block">
+                <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+                <code>cat ~/.ssh/id_ed25519_claude.pub</code>
+            </div>
+            <p>Copy the entire output (starts with <code>ssh-ed25519 AAAA...</code>)</p>
+        </div>
+
+        <div class="step">
+            <h3><span class="step-number">3</span>Add Public Key to Raspberry Pi</h3>
+            <p>SSH into your Pi manually and run:</p>
+            <div class="command-block">
+                <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+                <code>ssh pi@YOUR_PI_IP_ADDRESS</code>
+            </div>
+            <p>Then on the Pi:</p>
+            <div class="command-block">
+                <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+                <code>mkdir -p ~/.ssh
+chmod 700 ~/.ssh
+echo "PASTE_YOUR_PUBLIC_KEY_HERE" >> ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys</code>
+            </div>
+            <p>Replace <code>PASTE_YOUR_PUBLIC_KEY_HERE</code> with the key from step 2.</p>
+        </div>
+
+        <div class="step">
+            <h3><span class="step-number">4</span>Test the Connection</h3>
+            <p>From your local machine, test passwordless SSH:</p>
+            <div class="command-block">
+                <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+                <code>ssh -i ~/.ssh/id_ed25519_claude pi@YOUR_PI_IP_ADDRESS 'hostname'</code>
+            </div>
+            <p>If it returns your Pi's hostname without asking for a password, you're all set!</p>
+        </div>
+
+        <h2 id="github-setup">4. GitHub SSH Setup</h2>
+        <p>This allows the Raspberry Pi to push code to GitHub automatically.</p>
+
+        <div class="step">
+            <h3><span class="step-number">1</span>Generate GitHub SSH Key on Raspberry Pi</h3>
+            <p>SSH into your Pi and run:</p>
+            <div class="command-block">
+                <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+                <code>ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519_github -N "" -C "PROJECT_NAME-pi-github"</code>
+            </div>
+            <p>Replace <code>PROJECT_NAME</code> with your actual project name.</p>
+        </div>
+
+        <div class="step">
+            <h3><span class="step-number">2</span>Display GitHub Public Key</h3>
+            <p>On the Pi, view the public key:</p>
+            <div class="command-block">
+                <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+                <code>cat ~/.ssh/id_ed25519_github.pub</code>
+            </div>
+            <p>Copy the entire output.</p>
+        </div>
+
+        <div class="step">
+            <h3><span class="step-number">3</span>Add SSH Key to GitHub</h3>
+            <p>In your web browser:</p>
+            <ol>
+                <li>Go to <a href="https://github.com/settings/keys" target="_blank">https://github.com/settings/keys</a></li>
+                <li>Click <strong>"New SSH key"</strong></li>
+                <li>Title: <code>Project Name - Raspberry Pi</code></li>
+                <li>Key type: <strong>Authentication Key</strong></li>
+                <li>Paste the public key from step 2</li>
+                <li>Click <strong>"Add SSH key"</strong></li>
+            </ol>
+        </div>
+
+        <div class="step">
+            <h3><span class="step-number">4</span>Configure Git to Use SSH Key</h3>
+            <p>On the Raspberry Pi, create/update SSH config:</p>
+            <div class="command-block">
+                <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+                <code>cat >> ~/.ssh/config << 'EOF'
+Host github.com
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/id_ed25519_github
+    IdentitiesOnly yes
+EOF
+chmod 600 ~/.ssh/config</code>
+            </div>
+        </div>
+
+        <div class="step">
+            <h3><span class="step-number">5</span>Test GitHub Connection</h3>
+            <p>On the Pi, test the connection:</p>
+            <div class="command-block">
+                <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+                <code>ssh -T git@github.com</code>
+            </div>
+            <p>You should see: <code>Hi USERNAME! You've successfully authenticated...</code></p>
+        </div>
+
+        <div class="step">
+            <h3><span class="step-number">6</span>Update Git Remote to SSH</h3>
+            <p>In your project directory on the Pi:</p>
+            <div class="command-block">
+                <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+                <code>cd ~/YOUR_PROJECT_NAME
+git remote set-url origin git@github.com:USERNAME/REPO_NAME.git
+git remote -v</code>
+            </div>
+            <p>Verify the remote now shows <code>git@github.com:...</code> instead of <code>https://...</code></p>
+        </div>
+
+        <h2 id="claude-code-install">5. Installing Claude Code on Raspberry Pi</h2>
+        <p>This is optional but recommended if you want Claude to work autonomously on the Pi.</p>
+
+        <div class="step">
+            <h3><span class="step-number">1</span>Install Node.js</h3>
+            <p>On the Raspberry Pi:</p>
+            <div class="command-block">
+                <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+                <code>sudo apt update && sudo apt install -y nodejs npm</code>
+            </div>
+        </div>
+
+        <div class="step">
+            <h3><span class="step-number">2</span>Install Claude Code</h3>
+            <p>On the Raspberry Pi:</p>
+            <div class="command-block">
+                <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+                <code>sudo npm install -g @anthropic-ai/claude-code</code>
+            </div>
+        </div>
+
+        <div class="step">
+            <h3><span class="step-number">3</span>Verify Installation</h3>
+            <p>Check that Claude Code is installed:</p>
+            <div class="command-block">
+                <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+                <code>which claude && claude --version</code>
+            </div>
+        </div>
+
+        <div class="info">
+            <strong>Note:</strong> You'll need to authenticate Claude Code with your Anthropic API key the first time you run <code>claude</code> on the Pi. The local Claude Code (on your machine) can also work remotely via SSH without installing on the Pi.
+        </div>
+
+        <h2 id="workflow">6. Daily Workflow</h2>
+
+        <h3>Working on Your Project with Claude Code</h3>
+
+        <div class="step">
+            <h3>Option A: Remote Work from Local Machine</h3>
+            <p>Claude Code on your local machine works on the Pi remotely:</p>
+            <ol>
+                <li>Start Claude Code on your local machine: <code>claude</code></li>
+                <li>Tell Claude about the project on your Pi</li>
+                <li>Claude will SSH in and work directly on the Pi</li>
+                <li>All file changes happen on the Pi</li>
+                <li>Claude can commit and push to GitHub from the Pi</li>
+            </ol>
+        </div>
+
+        <div class="step">
+            <h3>Option B: Direct Work on Pi</h3>
+            <p>SSH into the Pi and run Claude Code there:</p>
+            <div class="command-block">
+                <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+                <code>ssh pi@YOUR_PI_IP
+cd ~/YOUR_PROJECT
+claude</code>
+            </div>
+            <p>Claude works directly on the Pi, you just provide instructions.</p>
+        </div>
+
+        <h3>Committing and Pushing Changes</h3>
+        <div class="command-block">
+            <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+            <code>cd ~/YOUR_PROJECT
+git status
+git add .
+git commit -m "Description of changes"
+git push origin main</code>
+        </div>
+
+        <div class="success">
+            <strong>With SSH keys configured:</strong> Claude Code can handle all git operations automatically, including pushing to GitHub without any password prompts!
+        </div>
+
+        <h2 id="troubleshooting">7. Troubleshooting</h2>
+
+        <h3>SSH Connection Issues</h3>
+        <div class="command-block">
+            <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+            <code># Test basic SSH
+ssh pi@YOUR_PI_IP
+
+# Test with specific key
+ssh -i ~/.ssh/id_ed25519_claude pi@YOUR_PI_IP
+
+# Verbose output for debugging
+ssh -v -i ~/.ssh/id_ed25519_claude pi@YOUR_PI_IP</code>
+        </div>
+
+        <h3>GitHub Push Permission Denied</h3>
+        <div class="command-block">
+            <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+            <code># On the Pi, test GitHub connection
+ssh -T git@github.com
+
+# Check git remote
+git remote -v
+
+# Should show git@github.com, not https://</code>
+        </div>
+
+        <h3>Permission Errors</h3>
+        <div class="command-block">
+            <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+            <code># Fix SSH directory permissions
+chmod 700 ~/.ssh
+chmod 600 ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/config
+chmod 600 ~/.ssh/id_*
+chmod 644 ~/.ssh/*.pub</code>
+        </div>
+
+        <h3>Quick Reference Table</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Task</th>
+                    <th>Command</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Find Pi IP Address</td>
+                    <td><code>hostname -I</code></td>
+                </tr>
+                <tr>
+                    <td>SSH into Pi</td>
+                    <td><code>ssh user@IP_ADDRESS</code></td>
+                </tr>
+                <tr>
+                    <td>Test SSH key</td>
+                    <td><code>ssh -i ~/.ssh/key_name user@IP</code></td>
+                </tr>
+                <tr>
+                    <td>View public key</td>
+                    <td><code>cat ~/.ssh/key_name.pub</code></td>
+                </tr>
+                <tr>
+                    <td>Test GitHub SSH</td>
+                    <td><code>ssh -T git@github.com</code></td>
+                </tr>
+                <tr>
+                    <td>Check git remote</td>
+                    <td><code>git remote -v</code></td>
+                </tr>
+                <tr>
+                    <td>Push to GitHub</td>
+                    <td><code>git push origin main</code></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="warning">
+            <strong>Security Best Practices:</strong>
+            <ul>
+                <li>Use different SSH keys for different purposes (Claude Code access, GitHub, etc.)</li>
+                <li>Never share your private keys (files without .pub extension)</li>
+                <li>Use strong passwords for your Raspberry Pi user account</li>
+                <li>Consider using SSH key passphrases for extra security</li>
+                <li>Regularly update your Raspberry Pi: <code>sudo apt update && sudo apt upgrade</code></li>
+            </ul>
+        </div>
+
+        <div class="success">
+            <h3>You're All Set!</h3>
+            <p>With this setup complete, you can start a new project session by simply telling Claude Code about your project, and it will handle everything remotely. Claude can read code, make changes, run tests, and push to GitHub - all while the code stays on your Raspberry Pi.</p>
+        </div>
+
+        <p style="margin-top: 40px; text-align: center; color: #7f8c8d;">
+            <small>Created: January 2026 | Last Updated: Project Setup Session</small>
+        </p>
+    </div>
+
+    <script>
+        function copyCommand(button) {
+            const codeBlock = button.nextElementSibling;
+            const text = codeBlock.textContent;
+
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                button.classList.add('copied');
+
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.classList.remove('copied');
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                alert('Failed to copy. Please copy manually.');
+            });
+        }
+    </script>
+</body>
+</html>
