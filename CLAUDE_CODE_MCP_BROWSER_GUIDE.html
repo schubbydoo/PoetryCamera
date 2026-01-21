@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Code: Browser Access & MCP Servers</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            color: #7f8c8d;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        h2 {
+            color: #34495e;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e74c3c;
+            font-size: 1.8em;
+        }
+
+        h3 {
+            color: #2c3e50;
+            margin-top: 25px;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        p, li {
+            margin-bottom: 12px;
+            color: #555;
+        }
+
+        ul, ol {
+            margin-left: 25px;
+            margin-bottom: 20px;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .info {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .success {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .pro-tip {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .command-block {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+            position: relative;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+        }
+
+        .command-block code {
+            display: block;
+            white-space: pre;
+            font-size: 0.9em;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: background 0.3s;
+        }
+
+        .copy-btn:hover {
+            background: #c0392b;
+        }
+
+        .copy-btn.copied {
+            background: #27ae60;
+        }
+
+        .step {
+            background: #f8f9fa;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 6px;
+            border-left: 4px solid #e74c3c;
+        }
+
+        .server-card {
+            background: white;
+            border: 2px solid #ecf0f1;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            transition: all 0.3s;
+        }
+
+        .server-card:hover {
+            border-color: #e74c3c;
+            box-shadow: 0 4px 12px rgba(231, 76, 60, 0.1);
+        }
+
+        .server-card h4 {
+            color: #e74c3c;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+
+        .server-card .use-cases {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 600;
+            margin-right: 8px;
+            margin-bottom: 8px;
+        }
+
+        .badge-essential {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .badge-recommended {
+            background: #f39c12;
+            color: white;
+        }
+
+        .badge-optional {
+            background: #95a5a6;
+            color: white;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: #e74c3c;
+            color: white;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background: #f5f5f5;
+        }
+
+        .toc {
+            background: #ecf0f1;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 30px 0;
+        }
+
+        .toc ul {
+            list-style: none;
+            margin-left: 0;
+        }
+
+        .toc li {
+            margin-bottom: 8px;
+        }
+
+        .toc a {
+            color: #c0392b;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .toc a:hover {
+            color: #e74c3c;
+            text-decoration: underline;
+        }
+
+        .example {
+            background: #f0f8ff;
+            border-left: 4px solid #4a90e2;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+
+        .example strong {
+            color: #2c3e50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Browser Access & MCP Servers</h1>
+        <p class="subtitle">Supercharge Claude Code with browser automation and external tools</p>
+
+        <div class="toc">
+            <h3>Table of Contents</h3>
+            <ul>
+                <li><a href="#what-is-mcp">1. What Are MCP Servers?</a></li>
+                <li><a href="#browser-access">2. Browser Access Setup</a></li>
+                <li><a href="#recommended-servers">3. Recommended MCP Servers for Raspberry Pi</a></li>
+                <li><a href="#quick-setup">4. Quick Setup Commands</a></li>
+                <li><a href="#configuration">5. Configuration Files</a></li>
+                <li><a href="#examples">6. Practical Examples</a></li>
+                <li><a href="#troubleshooting">7. Troubleshooting</a></li>
+            </ul>
+        </div>
+
+        <h2 id="what-is-mcp">1. What Are MCP Servers?</h2>
+        <p><strong>MCP (Model Context Protocol)</strong> is an open standard that connects Claude Code to external tools, databases, APIs, and services. Think of them as plugins that give Claude superpowers!</p>
+
+        <div class="info">
+            <strong>How MCP Works:</strong>
+            <ul>
+                <li><strong>Servers run locally or remotely</strong> - They can be Node.js processes, HTTP services, or cloud APIs</li>
+                <li><strong>Claude discovers available tools</strong> - When connected, Claude can see what each server offers</li>
+                <li><strong>Tasks get delegated</strong> - Claude uses the right tool for each task automatically</li>
+            </ul>
+        </div>
+
+        <h3>Three Types of MCP Servers</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Use When</th>
+                    <th>Example</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>HTTP</strong></td>
+                    <td>Remote cloud services, APIs</td>
+                    <td>GitHub, Notion, Sentry</td>
+                </tr>
+                <tr>
+                    <td><strong>Stdio</strong></td>
+                    <td>Local Node.js tools</td>
+                    <td>Filesystem, Docker, SQLite</td>
+                </tr>
+                <tr>
+                    <td><strong>SSE</strong></td>
+                    <td>Deprecated - use HTTP instead</td>
+                    <td>N/A</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2 id="browser-access">2. Browser Access Setup</h2>
+        <p>Enable Claude Code to control Chrome for testing web interfaces, automating workflows, and debugging.</p>
+
+        <div class="warning">
+            <strong>Requirements:</strong>
+            <ul>
+                <li>Google Chrome installed</li>
+                <li>Claude in Chrome extension (v1.0.36+)</li>
+                <li>Claude Code CLI (v2.0.73+)</li>
+                <li>Paid Claude plan (Pro, Team, or Enterprise)</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h3>Step 1: Install Chrome Extension</h3>
+            <p>Install the <strong>Claude in Chrome</strong> extension from the Chrome Web Store.</p>
+        </div>
+
+        <div class="step">
+            <h3>Step 2: Launch with Browser Access</h3>
+            <div class="command-block">
+                <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+                <code>claude --chrome</code>
+            </div>
+            <p>This enables browser automation for this session.</p>
+        </div>
+
+        <div class="step">
+            <h3>Step 3: Verify Connection</h3>
+            <p>In Claude Code, type:</p>
+            <div class="command-block">
+                <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+                <code>/chrome</code>
+            </div>
+            <p>This shows connection status and settings.</p>
+        </div>
+
+        <div class="step">
+            <h3>Step 4: Enable by Default (Optional)</h3>
+            <p>To enable Chrome every time:</p>
+            <ol>
+                <li>Run <code>/chrome</code> in Claude Code</li>
+                <li>Select "Enabled by default"</li>
+            </ol>
+            <div class="warning">
+                <strong>Note:</strong> This increases context usage since browser tools are always loaded. Only enable if you frequently use browser automation.
+            </div>
+        </div>
+
+        <h3>What You Can Do with Browser Access</h3>
+
+        <div class="example">
+            <strong>Test Your Web Interface:</strong>
+            <p>"Open localhost:8000/dashboard and test if the sensor readings display correctly. Take a screenshot of any issues."</p>
+        </div>
+
+        <div class="example">
+            <strong>Automate Form Filling:</strong>
+            <p>"Fill out the login form with test@example.com and password123, then submit and check for validation errors."</p>
+        </div>
+
+        <div class="example">
+            <strong>Extract Data:</strong>
+            <p>"Go to the admin panel and extract all the user statistics into a CSV file."</p>
+        </div>
+
+        <div class="example">
+            <strong>Debug Issues:</strong>
+            <p>"Open the web interface and check the browser console for JavaScript errors when loading the page."</p>
+        </div>
+
+        <h2 id="recommended-servers">3. Recommended MCP Servers for Raspberry Pi</h2>
+
+        <div class="server-card">
+            <h4><span class="badge badge-essential">ESSENTIAL</span> GitHub MCP Server</h4>
+            <p>Manage repositories, create PRs, handle issues directly from Claude Code.</p>
+            <div class="command-block">
+                <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+                <code>claude mcp add --transport http github https://api.githubcopilot.com/mcp/</code>
+            </div>
+            <div class="use-cases">
+                <strong>Use Cases:</strong>
+                <ul>
+                    <li>Create pull requests with auto-generated descriptions</li>
+                    <li>Link code changes to GitHub issues</li>
+                    <li>Review PRs and leave comments</li>
+                    <li>Search repositories for code examples</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="server-card">
+            <h4><span class="badge badge-recommended">RECOMMENDED</span> Filesystem MCP Server</h4>
+            <p>Access files across your entire system, not just the current project.</p>
+            <div class="command-block">
+                <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+                <code>claude mcp add --transport stdio filesystem -- npx -y @modelcontextprotocol/server-filesystem</code>
+            </div>
+            <div class="use-cases">
+                <strong>Use Cases:</strong>
+                <ul>
+                    <li>Read sensor data logs from different directories</li>
+                    <li>Access configuration files across projects</li>
+                    <li>Manage documentation and shared resources</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="server-card">
+            <h4><span class="badge badge-recommended">RECOMMENDED</span> Docker MCP Server</h4>
+            <p>Build, run, and manage Docker containers for your applications.</p>
+            <div class="command-block">
+                <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+                <code>claude mcp add --transport stdio docker -- npx -y @modelcontextprotocol/server-docker</code>
+            </div>
+            <div class="use-cases">
+                <strong>Use Cases:</strong>
+                <ul>
+                    <li>Containerize web interfaces for deployment</li>
+                    <li>Test applications in isolated environments</li>
+                    <li>Manage multi-container setups</li>
+                    <li>Build and push images to registries</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="server-card">
+            <h4><span class="badge badge-recommended">RECOMMENDED</span> SQLite MCP Server</h4>
+            <p>Query and manage SQLite databases on your Raspberry Pi.</p>
+            <div class="command-block">
+                <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+                <code>claude mcp add --transport stdio sqlite -- npx -y @modelcontextprotocol/server-sqlite /path/to/database.db</code>
+            </div>
+            <div class="use-cases">
+                <strong>Use Cases:</strong>
+                <ul>
+                    <li>Query sensor data and generate reports</li>
+                    <li>Manage user data for web interfaces</li>
+                    <li>Create and modify database schemas</li>
+                    <li>Optimize queries and indexes</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="server-card">
+            <h4><span class="badge badge-optional">OPTIONAL</span> PostgreSQL MCP Server</h4>
+            <p>For larger databases with advanced features.</p>
+            <div class="command-block">
+                <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+                <code>claude mcp add --transport stdio postgres -- npx -y @modelcontextprotocol/server-postgres \
+  --connection-string "postgresql://user:password@localhost:5432/mydb"</code>
+            </div>
+        </div>
+
+        <div class="server-card">
+            <h4><span class="badge badge-optional">OPTIONAL</span> Sentry MCP Server</h4>
+            <p>Monitor errors and crashes in your applications.</p>
+            <div class="command-block">
+                <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+                <code>claude mcp add --transport http sentry https://mcp.sentry.dev/mcp</code>
+            </div>
+            <div class="use-cases">
+                <strong>Use Cases:</strong>
+                <ul>
+                    <li>Track production errors</li>
+                    <li>Debug crashes in web interfaces</li>
+                    <li>Monitor application health</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="server-card">
+            <h4><span class="badge badge-optional">OPTIONAL</span> Notion MCP Server</h4>
+            <p>Sync project documentation with Notion.</p>
+            <div class="command-block">
+                <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+                <code>claude mcp add --transport http notion https://mcp.notion.com/mcp</code>
+            </div>
+        </div>
+
+        <h2 id="quick-setup">4. Quick Setup Commands</h2>
+
+        <h3>Complete Raspberry Pi Development Setup</h3>
+        <div class="command-block">
+            <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+            <code># Enable browser access
+claude --chrome
+
+# Add GitHub for repository management
+claude mcp add --transport http github https://api.githubcopilot.com/mcp/ --scope project
+
+# Add filesystem for broader file access
+claude mcp add --transport stdio filesystem -- npx -y @modelcontextprotocol/server-filesystem --scope project
+
+# Add Docker for containerization
+claude mcp add --transport stdio docker -- npx -y @modelcontextprotocol/server-docker --scope project
+
+# Add SQLite for database work (adjust path)
+claude mcp add --transport stdio sqlite -- npx -y @modelcontextprotocol/server-sqlite /home/pi/data/app.db --scope project</code>
+        </div>
+
+        <h3>Managing MCP Servers</h3>
+        <div class="command-block">
+            <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+            <code># List all configured servers
+claude mcp list
+
+# Get details about a specific server
+claude mcp get github
+
+# Remove a server
+claude mcp remove github
+
+# Check server status in Claude Code
+/mcp</code>
+        </div>
+
+        <h2 id="configuration">5. Configuration Files</h2>
+
+        <h3>Project Configuration (.mcp.json)</h3>
+        <p>Create this file in your project root to share MCP servers with your team:</p>
+        <div class="command-block">
+            <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+            <code>{
+  "mcpServers": {
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/"
+    },
+    "filesystem": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "${CLAUDE_PROJECT_DIR}"]
+    },
+    "docker": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-docker"]
+    },
+    "sqlite": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sqlite", "/home/pi/data/sensors.db"]
+    }
+  }
+}</code>
+        </div>
+
+        <h3>Settings Configuration (.claude/settings.json)</h3>
+        <p>Control permissions and environment variables:</p>
+        <div class="command-block">
+            <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+            <code>{
+  "enableAllProjectMcpServers": true,
+  "permissions": {
+    "allow": [
+      "Bash(docker:*)",
+      "Bash(npm run:*)",
+      "Bash(python:*)",
+      "Bash(git:*)",
+      "WebFetch"
+    ],
+    "deny": [
+      "Read(./secrets/**)",
+      "Read(./.env)",
+      "Bash(rm -rf:*)"
+    ]
+  },
+  "env": {
+    "DOCKER_HOST": "unix:///var/run/docker.sock",
+    "MCP_TIMEOUT": "10000"
+  }
+}</code>
+        </div>
+
+        <h2 id="examples">6. Practical Examples</h2>
+
+        <div class="pro-tip">
+            <h3>Example 1: Test Web Interface + Create GitHub Issue</h3>
+            <p><strong>Command to Claude:</strong></p>
+            <p>"Open localhost:8000/dashboard in the browser, test the temperature sensor display, take a screenshot, then create a GitHub issue with the screenshot if there are any problems."</p>
+            <p><strong>What Happens:</strong></p>
+            <ol>
+                <li>Chrome MCP opens your web interface</li>
+                <li>Claude tests the UI functionality</li>
+                <li>Takes screenshots of issues</li>
+                <li>GitHub MCP creates an issue with findings</li>
+            </ol>
+        </div>
+
+        <div class="pro-tip">
+            <h3>Example 2: Query Database + Generate Visualization</h3>
+            <p><strong>Command to Claude:</strong></p>
+            <p>"Query the SQLite database to get all temperature readings from the past 24 hours, then create a Python script that generates a line chart and saves it as a PNG."</p>
+            <p><strong>What Happens:</strong></p>
+            <ol>
+                <li>SQLite MCP queries sensor data</li>
+                <li>Bash runs Python matplotlib script</li>
+                <li>Chart saved to filesystem</li>
+            </ol>
+        </div>
+
+        <div class="pro-tip">
+            <h3>Example 3: Build Docker Container + Test + Push</h3>
+            <p><strong>Command to Claude:</strong></p>
+            <p>"Build a Docker image for the web interface, run it on localhost:3000, use the browser to test if it loads correctly, then push the image to Docker Hub if everything works."</p>
+            <p><strong>What Happens:</strong></p>
+            <ol>
+                <li>Docker MCP builds the image</li>
+                <li>Starts container on port 3000</li>
+                <li>Chrome MCP tests the running app</li>
+                <li>Docker MCP pushes to registry</li>
+            </ol>
+        </div>
+
+        <h2 id="troubleshooting">7. Troubleshooting</h2>
+
+        <h3>Browser Not Connecting</h3>
+        <div class="command-block">
+            <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+            <code># Check if extension is installed
+# Go to chrome://extensions
+
+# Restart Claude Code with browser enabled
+claude --chrome
+
+# Check connection status
+/chrome</code>
+        </div>
+
+        <h3>MCP Server Not Found</h3>
+        <div class="command-block">
+            <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+            <code># List all servers
+claude mcp list
+
+# Check if server is authenticated (for HTTP servers)
+/mcp
+
+# Try removing and re-adding
+claude mcp remove server_name
+claude mcp add --transport http server_name URL</code>
+        </div>
+
+        <h3>NPX Package Installation Issues</h3>
+        <div class="command-block">
+            <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+            <code># Update npm
+npm install -g npm@latest
+
+# Clear npm cache
+npm cache clean --force
+
+# Manually install the package
+npm install -g @modelcontextprotocol/server-filesystem</code>
+        </div>
+
+        <h3>Permission Denied Errors</h3>
+        <p>Add permissions to your <code>.claude/settings.json</code>:</p>
+        <div class="command-block">
+            <button class="copy-btn" onclick="copyCommand(this)">Copy</button>
+            <code>{
+  "permissions": {
+    "allow": [
+      "Bash(docker:*)",
+      "Bash(git:*)",
+      "WebFetch"
+    ]
+  }
+}</code>
+        </div>
+
+        <div class="success">
+            <h3>Quick Reference: Scope Options</h3>
+            <ul>
+                <li><strong>--scope local</strong> - Just you, this project (default, in <code>.claude/local.json</code>)</li>
+                <li><strong>--scope project</strong> - Shared with team (in <code>.mcp.json</code>, committed to git)</li>
+                <li><strong>--scope user</strong> - All your projects (in <code>~/.claude/settings.json</code>)</li>
+            </ul>
+        </div>
+
+        <div class="info">
+            <h3>Finding More MCP Servers</h3>
+            <p>Browse hundreds of available servers at:</p>
+            <p><a href="https://github.com/modelcontextprotocol/servers" target="_blank">https://github.com/modelcontextprotocol/servers</a></p>
+            <p><strong>Categories relevant to Raspberry Pi work:</strong></p>
+            <ul>
+                <li>Version Control: Git, GitHub, GitLab</li>
+                <li>Development: Docker, Kubernetes, AWS</li>
+                <li>Data: PostgreSQL, MongoDB, SQLite, Redis</li>
+                <li>Monitoring: Sentry, Datadog, New Relic</li>
+                <li>Documentation: Notion, Confluence</li>
+            </ul>
+        </div>
+
+        <div class="warning">
+            <h3>Best Practices</h3>
+            <ul>
+                <li><strong>Start minimal</strong> - Only add servers you actually need</li>
+                <li><strong>Use project scope for team settings</strong> - Store in .mcp.json</li>
+                <li><strong>Keep secrets out of git</strong> - Use environment variables</li>
+                <li><strong>Test locally first</strong> - Use browser to verify before deployment</li>
+                <li><strong>Review large outputs</strong> - They consume context tokens</li>
+                <li><strong>Check authentication</strong> - Use /mcp command regularly</li>
+            </ul>
+        </div>
+
+        <p style="margin-top: 40px; text-align: center; color: #7f8c8d;">
+            <small>Created: January 2026 | For use with Claude Code CLI v2.0+</small>
+        </p>
+    </div>
+
+    <script>
+        function copyCommand(button) {
+            const codeBlock = button.nextElementSibling;
+            const text = codeBlock.textContent;
+
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                button.classList.add('copied');
+
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.classList.remove('copied');
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                alert('Failed to copy. Please copy manually.');
+            });
+        }
+    </script>
+</body>
+</html>
