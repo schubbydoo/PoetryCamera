@@ -142,6 +142,9 @@ def take_photo_and_print_poem():
         poem_base = poem_base.replace("{format_variable}", f"{poem_format} — {format_description}")
 
         final_user_prompt = (
+            "CRITICAL RULE: NEVER use he/him/his/she/her/hers in the poem. "
+            "ALL people must be referred to with gender-neutral language: they/them/their, you/your, or by description. "
+            "This is a strict requirement.\n\n"
             f"{poem_base}\n"
             f"Poem format: {poem_format} — {format_description}\n"
             "IMPORTANT: Write a POEM, not a description. \n"
