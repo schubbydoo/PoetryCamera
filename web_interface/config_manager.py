@@ -2,7 +2,7 @@
 Configuration Management Module for Poetry Camera
 
 Handles persistent storage of settings including:
-- OpenAI model and prompts
+- AI provider and model settings (OpenAI, Anthropic)
 - Printer configuration
 - User credentials
 """
@@ -25,6 +25,7 @@ CONFIG_FILE = PROJECT_ROOT / "poetry_camera_config.json"
 # Default configuration values
 DEFAULT_CONFIG = {
     "openai": {
+        "provider": "openai",  # Options: "openai", "anthropic"
         "model": "gpt-4o-mini",
         "poem_prompt": """Write a poem using the details, atmosphere, and emotion of this scene.
 Create a unique and elegant poem using specific details from the visual.
@@ -74,6 +75,11 @@ class ConfigManager:
         except Exception as e:
             logger.error(f"Error loading config: {e}")
         return {}
+
+    def reload(self):
+        """Reload configuration from disk. Call this to pick up changes made by other processes."""
+        self.config = self._load_config()
+        self._ensure_defaults()
     
     def _save_config(self):
         """Save configuration to file."""
@@ -142,18 +148,29 @@ class ConfigManager:
         """Get the current username."""
         return self.config["auth"]["username"]
     
-    # ==================== OpenAI Methods ====================
-    
+    # ==================== AI Methods ====================
+
     def get_openai_config(self) -> Dict[str, Any]:
-        """Get OpenAI configuration."""
+        """Get AI configuration (stored under 'openai' key for backward compat)."""
         return self.config.get("openai", DEFAULT_CONFIG["openai"]).copy()
-    
+
+    def get_ai_provider(self) -> str:
+        """Get the current AI provider ('openai' or 'anthropic')."""
+        return self.config["openai"].get("provider", "openai")
+
+    def set_ai_provider(self, provider: str):
+        """Set the AI provider."""
+        valid_providers = ["openai", "anthropic"]
+        if provider in valid_providers:
+            self.config["openai"]["provider"] = provider
+            self._save_config()
+
     def get_openai_model(self) -> str:
-        """Get the current OpenAI model."""
+        """Get the current model name."""
         return self.config["openai"]["model"]
-    
+
     def set_openai_model(self, model: str):
-        """Set the OpenAI model."""
+        """Set the model name."""
         self.config["openai"]["model"] = model
         self._save_config()
 
@@ -176,8 +193,13 @@ class ConfigManager:
         self._save_config()
     
     def update_openai_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """Update multiple OpenAI settings at once."""
+        """Update multiple AI settings at once."""
         try:
+            if "provider" in config:
+                valid_providers = ["openai", "anthropic"]
+                if config["provider"] not in valid_providers:
+                    return {"success": False, "error": f"Invalid provider: {config['provider']}"}
+                self.config["openai"]["provider"] = config["provider"]
             if "model" in config:
                 self.config["openai"]["model"] = config["model"]
             if "poem_prompt" in config:
@@ -186,7 +208,7 @@ class ConfigManager:
                 self.config["openai"]["poem_format"] = config["poem_format"]
 
             self._save_config()
-            return {"success": True, "message": "OpenAI settings updated"}
+            return {"success": True, "message": "AI settings updated"}
         except Exception as e:
             return {"success": False, "error": str(e)}
     

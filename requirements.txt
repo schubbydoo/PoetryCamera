@@ -9,6 +9,7 @@ adafruit-circuitpython-typing
 Adafruit-PlatformDetect
 Adafruit-PureIO
 annotated-types
+anthropic
 anyio
 asttokens
 attrs

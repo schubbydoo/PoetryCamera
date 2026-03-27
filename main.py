@@ -8,6 +8,7 @@ from gpiozero import LED, Button
 from datetime import datetime
 from dotenv import load_dotenv
 from openai import OpenAI
+import anthropic
 from time import time, sleep
 import logging
 
@@ -19,6 +20,14 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 logging.info("Server starting")
 logging.info("Connecting to printer")
+
+POEM_FORMAT_DESCRIPTIONS = {
+    "limerick": "5 lines, AABBA rhyme scheme. Short, bouncy rhythm. Great for candid or humorous moments.",
+    "ballad stanza": "4-line stanzas, ABAB rhyme. A classic storytelling format, naturally musical.",
+    "rhyming couplets": "AA BB CC pattern. The simplest rhyme structure — punchy and rhythmic.",
+    "clerihew": "4-line biographical poem, AABB rhyme. First line is a person's name — perfect when there are people in the scene.",
+    "sonnet": "14 lines, ABAB CDCD EFEF GG rhyme scheme. Strong rhyme throughout.",
+}
 
 # --- Config Getters ---
 def get_poem_system_prompt():
@@ -33,12 +42,17 @@ def get_poem_format():
 def get_openai_model():
     return config_manager.get_openai_model()
 
+def get_ai_provider():
+    return config_manager.get_ai_provider()
+
 def initialize():
     load_dotenv()
 
-    # Set up OpenAI client
-    global openai_client
-    openai_client = OpenAI(api_key=os.environ['OPENAI_API_KEY'])
+    # Set up AI clients
+    global openai_client, anthropic_client
+    openai_client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY', ''))
+    anthropic_api_key = os.environ.get('ANTHROPIC_API_KEY', '')
+    anthropic_client = anthropic.Anthropic(api_key=anthropic_api_key) if anthropic_api_key else None
 
     # Set up camera (Lazily initialized later to save CPU)
     global picam2, camera_at_rest
@@ -113,41 +127,38 @@ def take_photo_and_print_poem():
     # Single-Step Generation
     #########################
     try:
+        # Reload config from disk to pick up any changes made via the web UI
+        config_manager.reload()
+
         base64_image = encode_image(photo_filename)
+        provider = get_ai_provider()
         model = get_openai_model()
-        
+
         poem_base = get_poem_prompt()
         poem_format = get_poem_format()
-        
-        # AGGRESSIVE PROMPT for speed and brevity
+        format_description = POEM_FORMAT_DESCRIPTIONS.get(poem_format, poem_format)
+
+        # Replace any {format_variable} placeholder in the saved prompt
+        poem_base = poem_base.replace("{format_variable}", f"{poem_format} — {format_description}")
+
         final_user_prompt = (
             f"{poem_base}\n"
-            f"Style: {poem_format}\n"
+            f"Poem format: {poem_format} — {format_description}\n"
             "IMPORTANT: Write a POEM, not a description. \n"
-            "Keep it short (max 8 lines). \n"
+            "Follow the specified poem format exactly. \n"
+            "Keep the poem to 50 words or fewer. \n"
             "Do not mention the date or time. Focus on the visual mood."
         )
 
-        print("Sending image to AI...")
-        
-        # Note: 'max_tokens' is removed to support o1 models
-        response = openai_client.chat.completions.create(
-            model=model,
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": final_user_prompt},
-                        {
-                            "type": "image_url", 
-                            "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}
-                        }
-                    ]
-                }
-            ]
-        )
+        logging.info(f"AI config: provider={provider}, model={model}, format={poem_format}")
+        logging.info(f"Prompt being sent:\n{final_user_prompt}")
+        print(f"Sending image to AI ({provider}/{model})...")
 
-        poem = response.choices[0].message.content
+        if provider == "anthropic":
+            poem = _generate_poem_anthropic(model, final_user_prompt, base64_image)
+        else:
+            poem = _generate_poem_openai(model, final_user_prompt, base64_image)
+
         print_poem(poem)
 
     except Exception as e:
@@ -167,6 +178,56 @@ def take_photo_and_print_poem():
 def encode_image(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode('utf-8')
+
+
+def _generate_poem_openai(model, prompt, base64_image):
+    """Generate a poem using OpenAI's vision API."""
+    response = openai_client.chat.completions.create(
+        model=model,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}
+                    }
+                ]
+            }
+        ]
+    )
+    return response.choices[0].message.content
+
+
+def _generate_poem_anthropic(model, prompt, base64_image):
+    """Generate a poem using Anthropic's vision API."""
+    if not anthropic_client:
+        raise RuntimeError("Anthropic API key not configured. Set ANTHROPIC_API_KEY in .env")
+    message = anthropic_client.messages.create(
+        model=model,
+        max_tokens=1024,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "image/jpeg",
+                            "data": base64_image,
+                        },
+                    },
+                    {
+                        "type": "text",
+                        "text": prompt,
+                    }
+                ]
+            }
+        ]
+    )
+    return message.content[0].text
 
 
 ###########################

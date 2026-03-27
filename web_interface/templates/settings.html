@@ -116,47 +116,79 @@
     </div>
 </div>
 
-<!-- OpenAI Settings Tab -->
+<!-- AI Settings Tab -->
 <div id="openai-tab" class="tab-content" style="display: none;">
     <div class="box">
         <h2 class="title is-5">
             <span class="icon"><i class="fas fa-robot"></i></span>
-            OpenAI Configuration
+            AI Configuration
         </h2>
-        
+
+        <div class="field">
+            <label class="label">AI Provider</label>
+            <div class="control">
+                <div class="select is-fullwidth">
+                    <select id="ai-provider">
+                        <option value="openai" {% if openai_config.provider == 'openai' or not openai_config.provider %}selected{% endif %}>
+                            OpenAI
+                        </option>
+                        <option value="anthropic" {% if openai_config.provider == 'anthropic' %}selected{% endif %}>
+                            Anthropic (Claude)
+                        </option>
+                    </select>
+                </div>
+            </div>
+            <p class="help">Select the AI provider for poem generation. Make sure the corresponding API key is set in .env</p>
+        </div>
+
         <div class="field">
             <label class="label">Model</label>
             <div class="control has-icons-left">
-                <input class="input" type="text" id="openai-model" 
-                       value="{{ openai_config.model }}" 
+                <input class="input" type="text" id="openai-model"
+                       value="{{ openai_config.model }}"
                        list="model-suggestions"
                        placeholder="e.g., gpt-4o-mini">
                 <span class="icon is-small is-left">
                     <i class="fas fa-robot"></i>
                 </span>
                 <datalist id="model-suggestions">
-                    <option value="gpt-4o-mini">GPT-4o Mini (Recommended)</option>
-                    <option value="gpt-4o">GPT-4o (Best Quality)</option>
-                    <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                    <option value="gpt-4.1-mini">GPT-4.1 Mini</option>
-                    <option value="gpt-4.1">GPT-4.1</option>
-                    <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-                    <option value="o1-mini">O1 Mini</option>
-                    <option value="o1">O1</option>
+                    <!-- Populated dynamically by JS based on provider -->
                 </datalist>
             </div>
-            <p class="help">Enter any OpenAI model name (e.g., gpt-4o-mini, gpt-5-nano-2025-08-07)</p>
+            <p class="help" id="model-help">Enter a model name for the selected provider</p>
         </div>
-        
+
         <div class="field">
             <label class="label">Poem Format</label>
             <div class="control">
-                <input class="input" type="text" id="poem-format" 
-                       value="{{ openai_config.poem_format }}" placeholder="couplet">
+                <div class="select is-fullwidth">
+                    <select id="poem-format">
+                        <option value="limerick" {% if openai_config.poem_format == 'limerick' %}selected{% endif %}
+                            title="5 lines, AABBA rhyme scheme. Short, bouncy rhythm — great for candid or humorous moments.">
+                            Limerick
+                        </option>
+                        <option value="ballad stanza" {% if openai_config.poem_format == 'ballad stanza' %}selected{% endif %}
+                            title="4-line stanzas, ABAB rhyme. A classic storytelling format — flexible, naturally musical, works for lighthearted and sentimental scenes.">
+                            Ballad Stanza
+                        </option>
+                        <option value="rhyming couplets" {% if openai_config.poem_format == 'rhyming couplets' %}selected{% endif %}
+                            title="AA BB CC pattern. The simplest rhyme structure — punchy, rhythmic, and consistently reliable.">
+                            Rhyming Couplets
+                        </option>
+                        <option value="clerihew" {% if openai_config.poem_format == 'clerihew' %}selected{% endif %}
+                            title="4-line biographical poem, AABB rhyme. First line is a person's name — perfect when the camera sees people.">
+                            Clerihew
+                        </option>
+                        <option value="sonnet" {% if openai_config.poem_format == 'sonnet' %}selected{% endif %}
+                            title="14 lines, ABAB CDCD EFEF GG rhyme scheme. Strong rhyme throughout but longer — best for dramatic or detailed scenes.">
+                            Sonnet
+                        </option>
+                    </select>
+                </div>
             </div>
-            <p class="help">The style/format for generated poems (e.g., couplet, haiku, sonnet)</p>
+            <p class="help" id="poem-format-description"></p>
         </div>
-        
+
         <div class="field mt-4">
             <button class="button is-primary" id="btn-save-openai">
                 <span class="icon"><i class="fas fa-save"></i></span>
@@ -191,7 +223,7 @@
             </div>
         </div>
         <p class="help has-text-grey mt-2">
-            <strong>How it works:</strong> When you take a photo, the image is sent to OpenAI's vision model along with this prompt.
+            <strong>How it works:</strong> When you take a photo, the image is sent to the selected AI provider's vision model along with this prompt.
             The AI analyzes what it sees and generates a poem in one step.
         </p>
     </div>
