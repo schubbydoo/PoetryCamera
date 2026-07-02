@@ -142,9 +142,11 @@ def settings():
     """Settings page for prompts and printer configuration."""
     openai_config = config_manager.get_openai_config()
     printer_config = config_manager.get_printer_config()
+    demo_context = config_manager.get_demo_context()
     return render_template('settings.html',
         openai_config=openai_config,
-        printer_config=printer_config
+        printer_config=printer_config,
+        demo_context=demo_context
     )
 
 
@@ -373,6 +375,34 @@ def api_change_password():
     result = config_manager.change_password(current_password, new_password)
     status_code = 200 if result.get("success") else 400
     return jsonify(result), status_code
+
+
+# ==================== API Routes - Demo Context ====================
+
+@app.route('/api/settings/demo_context', methods=['GET', 'POST'])
+@login_required
+def api_demo_context():
+    """Get or update demo context."""
+    if request.method == 'GET':
+        return jsonify({
+            "success": True,
+            "demo_context": config_manager.get_demo_context()
+        })
+
+    data = request.get_json()
+    if not data:
+        return jsonify({"success": False, "error": "No data provided"}), 400
+
+    config_manager.set_demo_context(data.get("demo_context", ""))
+    return jsonify({"success": True, "message": "Demo context saved"})
+
+
+@app.route('/api/settings/demo_context/clear', methods=['POST'])
+@login_required
+def api_clear_demo_context():
+    """Clear demo context."""
+    config_manager.clear_demo_context()
+    return jsonify({"success": True, "message": "Demo context cleared"})
 
 
 # ==================== API Routes - Printer Test ====================

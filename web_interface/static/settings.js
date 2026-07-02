@@ -43,6 +43,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-save-prompts').addEventListener('click', savePrompts);
     document.getElementById('btn-reset-prompts').addEventListener('click', () => openModal('reset-modal'));
     document.getElementById('btn-confirm-reset').addEventListener('click', resetPrompts);
+    document.getElementById('btn-save-demo-context').addEventListener('click', saveDemoContext);
+    document.getElementById('btn-clear-demo-context').addEventListener('click', clearDemoContext);
 
     // Printer type change handler
     document.getElementById('printer-type').addEventListener('change', updatePrinterVisibility);
@@ -201,6 +203,50 @@ async function savePrompts() {
         }
     } catch (error) {
         showNotification('Error saving prompt: ' + error.message, 'danger');
+    } finally {
+        setButtonLoading(btn, false);
+    }
+}
+
+// ==================== Demo Context ====================
+
+async function saveDemoContext() {
+    const btn = document.getElementById('btn-save-demo-context');
+    const context = document.getElementById('demo-context').value;
+
+    setButtonLoading(btn, true);
+
+    try {
+        const result = await apiCall('/api/settings/demo_context', 'POST', { demo_context: context });
+
+        if (result.success) {
+            showNotification('Demo context saved!', 'success');
+        } else {
+            showNotification(result.error || 'Failed to save demo context', 'danger');
+        }
+    } catch (error) {
+        showNotification('Error saving demo context: ' + error.message, 'danger');
+    } finally {
+        setButtonLoading(btn, false);
+    }
+}
+
+async function clearDemoContext() {
+    const btn = document.getElementById('btn-clear-demo-context');
+
+    setButtonLoading(btn, true);
+
+    try {
+        const result = await apiCall('/api/settings/demo_context/clear', 'POST');
+
+        if (result.success) {
+            document.getElementById('demo-context').value = '';
+            showNotification('Demo context cleared!', 'success');
+        } else {
+            showNotification(result.error || 'Failed to clear demo context', 'danger');
+        }
+    } catch (error) {
+        showNotification('Error clearing demo context: ' + error.message, 'danger');
     } finally {
         setButtonLoading(btn, false);
     }

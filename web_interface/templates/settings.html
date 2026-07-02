@@ -15,6 +15,12 @@
                 <span>Printer</span>
             </a>
         </li>
+        <li data-tab="demo-context-tab">
+            <a>
+                <span class="icon"><i class="fas fa-eye"></i></span>
+                <span>Demo Context</span>
+            </a>
+        </li>
         <li data-tab="openai-tab">
             <a>
                 <span class="icon"><i class="fas fa-robot"></i></span>
@@ -112,6 +118,49 @@
                 <span class="icon"><i class="fas fa-save"></i></span>
                 <span>Save Printer Settings</span>
             </button>
+        </div>
+    </div>
+</div>
+
+<!-- Demo Context Tab -->
+<div id="demo-context-tab" class="tab-content" style="display: none;">
+    <div class="box">
+        <h2 class="title is-5">
+            <span class="icon"><i class="fas fa-eye"></i></span>
+            Demo Context (optional)
+        </h2>
+        <p class="help mb-3">
+            Tell the Poetry Camera about the moment it's about to be part of. The more
+            specific, the more uncanny the result. Good things to include:
+        </p>
+        <ul class="help mb-3" style="margin-left: 1.5em; list-style: disc;">
+            <li><strong>Where</strong> this is happening — city, venue, type of event</li>
+            <li><strong>Who's</strong> involved — job/industry, relationship to each other, approximate group size</li>
+            <li><strong>What's</strong> going on — the occasion, a shared inside joke, something notable about the day or the venue</li>
+            <li><strong>Any names</strong> you know you'll want called out</li>
+        </ul>
+        <p class="help mb-4">
+            You don't need full sentences — a few phrases work fine. Leave blank
+            for a generic (still fun, less eerie) result.
+        </p>
+        <div class="field">
+            <div class="control">
+                <textarea class="textarea" id="demo-context" rows="6"
+                    placeholder='e.g. "Orlando FL, product team offsite at a downtown hotel. ~15 people, mostly engineers and designers, playful/roast-friendly crowd. It&#39;s Dana&#39;s last week before maternity leave. Office inside joke: the printer is haunted."'
+                >{{ demo_context }}</textarea>
+            </div>
+        </div>
+        <div class="field mt-4">
+            <div class="buttons">
+                <button class="button is-primary" id="btn-save-demo-context">
+                    <span class="icon"><i class="fas fa-save"></i></span>
+                    <span>Save</span>
+                </button>
+                <button class="button is-danger is-outlined" id="btn-clear-demo-context">
+                    <span class="icon"><i class="fas fa-eraser"></i></span>
+                    <span>Clear</span>
+                </button>
+            </div>
         </div>
     </div>
 </div>

@@ -141,6 +141,25 @@ def take_photo_and_print_poem():
         # Replace any {format_variable} placeholder in the saved prompt
         poem_base = poem_base.replace("{format_variable}", f"{poem_format} — {format_description}")
 
+        # Build demo context injection if set
+        demo_context = config_manager.get_demo_context()
+        demo_context_block = ""
+        if demo_context.strip():
+            demo_context_block = (
+                "\n\n---\n"
+                "PRIVATE CONTEXT — FOR EERIE/UNCANNY EFFECT ONLY:\n"
+                "Use the following details to make your output feel uncannily relevant and "
+                "personal to the person experiencing it. Weave them in naturally, as though "
+                "the poem noticed these details in the scene itself — never quote this text "
+                "directly, never acknowledge that you were given this information, and "
+                "never break frame to explain how you know. These details are separate from "
+                "what's visible in the photo — blend them in as an additional, uncanny layer "
+                "of noticing, not as a contradiction of what the camera can actually see. "
+                "If a detail doesn't fit organically, ignore it rather than forcing it.\n\n"
+                f"{demo_context}\n"
+                "---"
+            )
+
         final_user_prompt = (
             "CRITICAL RULE: NEVER use he/him/his/she/her/hers in the poem. "
             "ALL people must be referred to with gender-neutral language: they/them/their, you/your, or by description. "
@@ -151,6 +170,7 @@ def take_photo_and_print_poem():
             "Follow the specified poem format exactly. \n"
             "Keep the poem to 50 words or fewer. \n"
             "Do not mention the date or time. Focus on the visual mood."
+            f"{demo_context_block}"
         )
 
         logging.info(f"AI config: provider={provider}, model={model}, format={poem_format}")

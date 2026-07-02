@@ -24,6 +24,7 @@ CONFIG_FILE = PROJECT_ROOT / "poetry_camera_config.json"
 
 # Default configuration values
 DEFAULT_CONFIG = {
+    "demo_context": "",
     "openai": {
         "provider": "openai",  # Options: "openai", "anthropic"
         "model": "gpt-4o-mini",
@@ -148,6 +149,22 @@ class ConfigManager:
         """Get the current username."""
         return self.config["auth"]["username"]
     
+    # ==================== Demo Context Methods ====================
+
+    def get_demo_context(self) -> str:
+        """Get the current demo context."""
+        return self.config.get("demo_context", "")
+
+    def set_demo_context(self, context: str):
+        """Set the demo context."""
+        self.config["demo_context"] = context
+        self._save_config()
+
+    def clear_demo_context(self):
+        """Clear the demo context."""
+        self.config["demo_context"] = ""
+        self._save_config()
+
     # ==================== AI Methods ====================
 
     def get_openai_config(self) -> Dict[str, Any]:
