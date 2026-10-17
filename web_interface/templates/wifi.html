@@ -113,14 +113,14 @@
             </div>
             <div class="field">
                 <label class="checkbox">
-                    <input type="checkbox" id="new-save-only">
-                    Save only (don't connect now) &mdash; use this to preprogram a network that isn't in range
+                    <input type="checkbox" id="new-connect-now">
+                    Connect now (leave unchecked to just save it for later)
                 </label>
             </div>
             <div class="field">
                 <button class="button is-primary" id="btn-add-network">
-                    <span class="icon"><i class="fas fa-plug"></i></span>
-                    <span>Save & Connect</span>
+                    <span class="icon"><i class="fas fa-save"></i></span>
+                    <span>Save</span>
                 </button>
             </div>
         </div>
@@ -180,6 +180,28 @@
                 <span>Connect</span>
             </button>
             <button class="button btn-cancel">Cancel</button>
+        </footer>
+    </div>
+</div>
+
+<!-- Network Details Modal -->
+<div id="details-modal" class="modal">
+    <div class="modal-background"></div>
+    <div class="modal-card">
+        <header class="modal-card-head">
+            <p class="modal-card-title">
+                <span class="icon"><i class="fas fa-wifi"></i></span>
+                Network Details
+            </p>
+            <button class="delete" aria-label="close"></button>
+        </header>
+        <section class="modal-card-body">
+            <table class="table is-fullwidth is-striped" id="details-table">
+                <tbody></tbody>
+            </table>
+        </section>
+        <footer class="modal-card-foot">
+            <button class="button btn-cancel">Close</button>
         </footer>
     </div>
 </div>

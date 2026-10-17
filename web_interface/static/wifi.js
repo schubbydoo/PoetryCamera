@@ -137,7 +137,8 @@ function displaySavedNetworks(networks) {
         <tr>
             <td>
                 <span class="icon"><i class="fas fa-star has-text-warning"></i></span>
-                ${escapeHtml(network.name)}
+                <a href="#" onclick="showNetworkDetails(this.dataset.name); return false;"
+                   data-name="${escapeHtml(network.name)}">${escapeHtml(network.name)}</a>
                 ${network.autoconnect ? '<span class="tag is-small is-light ml-2">Auto</span>' : ''}
             </td>
             <td style="width: 80px;">
@@ -148,6 +149,26 @@ function displaySavedNetworks(networks) {
             </td>
         </tr>
     `).join('');
+}
+
+// ==================== Network Details ====================
+
+async function showNetworkDetails(name) {
+    const tbody = document.querySelector('#details-table tbody');
+    tbody.innerHTML = '<tr><td class="has-text-grey">Loading...</td></tr>';
+    document.getElementById('details-modal').classList.add('is-active');
+    
+    try {
+        const result = await apiCall('/api/wifi/network-details?name=' + encodeURIComponent(name));
+        tbody.innerHTML = Object.entries(result.details).map(([key, value]) => `
+            <tr>
+                <th style="width: 40%;">${escapeHtml(key)}</th>
+                <td>${escapeHtml(String(value))}</td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        tbody.innerHTML = `<tr><td class="has-text-danger">${escapeHtml(error.message)}</td></tr>`;
+    }
 }
 
 // ==================== Connect Modal ====================
@@ -205,7 +226,7 @@ async function addNetwork() {
     const ssid = document.getElementById('new-ssid').value.trim();
     const password = document.getElementById('new-password').value;
     const autoconnect = document.getElementById('new-autoconnect').checked;
-    const saveOnly = document.getElementById('new-save-only').checked;
+    const connectNow = document.getElementById('new-connect-now').checked;
     
     if (!ssid) {
         showNotification('Please enter a network name', 'warning');
@@ -220,7 +241,7 @@ async function addNetwork() {
             ssid: ssid,
             password: password,
             autoconnect: autoconnect,
-            connect_now: !saveOnly
+            connect_now: connectNow
         });
         
         if (result.success) {

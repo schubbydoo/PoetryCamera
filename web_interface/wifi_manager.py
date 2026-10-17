@@ -189,6 +189,70 @@ class WiFiManager:
                 return candidate
         return None
     
+    def get_network_details(self, name):
+        """Return details of a saved network (the password itself is never returned)."""
+        profile = self._find_profile(name)
+        if not profile:
+            return None
+        fields = ["connection.id", "connection.autoconnect", "connection.autoconnect-priority",
+                  "connection.interface-name", "802-11-wireless.ssid", "802-11-wireless.hidden",
+                  "802-11-wireless-security.key-mgmt", "ipv4.method"]
+        out = subprocess.run(
+            ["sudo", "nmcli", "-g", ",".join(fields), "connection", "show", "id", profile],
+            capture_output=True, text=True, timeout=self.CMD_TIMEOUT_MEDIUM
+        )
+        # -g with several fields prints one value per line, empty values included
+        values = out.stdout.split('\n')
+        values += [''] * len(fields)
+        d = dict(zip(fields, values))
+        
+        psk = subprocess.run(
+            ["sudo", "nmcli", "-s", "-g", "802-11-wireless-security.psk", "connection", "show", "id", profile],
+            capture_output=True, text=True, timeout=self.CMD_TIMEOUT_MEDIUM
+        ).stdout.strip()
+        key_mgmt = d["802-11-wireless-security.key-mgmt"]
+        ssid = d["802-11-wireless.ssid"] or profile
+        
+        active = subprocess.run(
+            ["nmcli", "-t", "-f", "NAME", "connection", "show", "--active"],
+            capture_output=True, text=True, timeout=self.CMD_TIMEOUT_SHORT
+        ).stdout.replace('\\:', ':').split('\n')
+        
+        signal = None
+        scan = subprocess.run(
+            ["nmcli", "-t", "-f", "ACTIVE,SSID,SIGNAL", "device", "wifi", "list"],
+            capture_output=True, text=True, encoding='utf-8', errors='ignore',
+            timeout=self.CMD_TIMEOUT_MEDIUM
+        ).stdout
+        connected_ssid = False
+        for line in scan.split('\n'):
+            if ':' in line:
+                head, _, sig = line.rpartition(':')
+                is_active, _, scan_ssid = head.partition(':')
+                if scan_ssid.replace('\\:', ':') == ssid and sig.isdigit():
+                    signal = max(signal or 0, int(sig))
+                    connected_ssid = connected_ssid or is_active == "yes"
+        
+        if profile in active or connected_ssid:
+            status = "Connected"
+        elif signal is not None:
+            status = f"In range (signal {signal}%)"
+        else:
+            status = "Not in range"
+        
+        return {
+            "Name": d["connection.id"],
+            "SSID": ssid,
+            "Status": status,
+            "Security": "WPA-PSK" if key_mgmt == "wpa-psk" else (key_mgmt.upper() if key_mgmt else "Open"),
+            "Password": "Stored" if psk else ("None (open network)" if not key_mgmt else "Not stored"),
+            "Auto-connect": "Yes" if d["connection.autoconnect"] == "yes" else "No",
+            "Priority": d["connection.autoconnect-priority"] or "0",
+            "Interface": d["connection.interface-name"] or "any",
+            "Hidden network": "Yes" if d["802-11-wireless.hidden"] == "yes" else "No",
+            "IP": "Automatic (DHCP)" if d["ipv4.method"] == "auto" else d["ipv4.method"],
+        }
+    
     def connect_network(self, ssid, password, autoconnect=True, connect_now=True):
         """Save a WiFi network profile and optionally connect to it.
         

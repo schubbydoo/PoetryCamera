@@ -232,6 +232,20 @@ def api_wifi_networks():
         }), 500
 
 
+@app.route('/api/wifi/network-details')
+@login_required
+def api_wifi_network_details():
+    """Get details of one saved WiFi network (never includes the password)."""
+    name = request.args.get('name', '')
+    try:
+        details = wifi_manager.get_network_details(name) if name else None
+        if not details:
+            return jsonify({"success": False, "error": "Network not found"}), 404
+        return jsonify({"success": True, "details": details})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route('/api/wifi/connect', methods=['POST'])
 @login_required
 def api_wifi_connect():
