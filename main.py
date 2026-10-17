@@ -11,6 +11,8 @@ from openai import OpenAI
 import anthropic
 from time import time, sleep
 import logging
+import re
+import random
 
 # Import configuration manager
 from web_interface.config_manager import config_manager
@@ -28,6 +30,21 @@ POEM_FORMAT_DESCRIPTIONS = {
     "clerihew": "4-line biographical poem, AABB rhyme. First line is a person's name — perfect when there are people in the scene.",
     "sonnet": "14 lines, ABAB CDCD EFEF GG rhyme scheme. Strong rhyme throughout.",
 }
+
+API_TIMEOUT = 20  # seconds per AI request
+
+# Backup models used if the configured provider fails
+FALLBACK_MODELS = {
+    "anthropic": "claude-haiku-4-5-20251001",
+    "openai": "gpt-4o",
+}
+
+# Printed only if every AI attempt fails, so guests never see an error message
+FALLBACK_POEMS = [
+    "Hold still, the moment's here,\nA little light, a little cheer.\nThe muses stepped out for a bite,\nBut left this smile to keep tonight.",
+    "You stopped, you laughed, the shutter sang,\nThe whole room caught it where it rang.\nThe words ran off to find their rhyme,\nBut you were here, and that's the time.",
+    "A face, a flash, a crooked grin,\nThe poem's stuck somewhere within.\nTry once again and it will flow,\nThe muse is shy, but ready to go.",
+]
 
 # --- Config Getters ---
 def get_poem_system_prompt():
@@ -50,9 +67,11 @@ def initialize():
 
     # Set up AI clients
     global openai_client, anthropic_client
-    openai_client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY', ''))
+    # Short timeout + one retry so a flaky network can never leave the camera stuck "busy"
+    openai_api_key = os.environ.get('OPENAI_API_KEY', '')
+    openai_client = OpenAI(api_key=openai_api_key, timeout=API_TIMEOUT, max_retries=1) if openai_api_key else None
     anthropic_api_key = os.environ.get('ANTHROPIC_API_KEY', '')
-    anthropic_client = anthropic.Anthropic(api_key=anthropic_api_key) if anthropic_api_key else None
+    anthropic_client = anthropic.Anthropic(api_key=anthropic_api_key, timeout=API_TIMEOUT, max_retries=1) if anthropic_api_key else None
 
     # Set up camera (Lazily initialized later to save CPU)
     global picam2, camera_at_rest
@@ -177,17 +196,13 @@ def take_photo_and_print_poem():
         logging.info(f"Prompt being sent:\n{final_user_prompt}")
         print(f"Sending image to AI ({provider}/{model})...")
 
-        if provider == "anthropic":
-            poem = _generate_poem_anthropic(model, final_user_prompt, base64_image)
-        else:
-            poem = _generate_poem_openai(model, final_user_prompt, base64_image)
-
+        poem = generate_poem_with_fallback(provider, model, final_user_prompt, base64_image)
         print_poem(poem)
 
     except Exception as e:
-        error_message = str(e)
-        print("Error during generation: ", error_message)
-        print_poem(f"Alas, the muses are silent.\n(Error: {error_message[:50]}...)")
+        # Never show guests an error; print a canned poem and log the real cause
+        logging.exception("Poem generation failed")
+        print_poem(random.choice(FALLBACK_POEMS))
         safe_led_on()
         camera_at_rest = True
         return
@@ -198,6 +213,56 @@ def take_photo_and_print_poem():
     return
 
 
+def clean_poem(text):
+    """Strip chatty preambles, markdown and quotes the model sometimes adds."""
+    text = (text or "").strip()
+    text = re.sub(r"^```\w*\n?|```$", "", text).strip()
+    lines = text.splitlines()
+    # Drop a leading "Here's a poem:" style line
+    if lines and re.match(r"^(here'?s|here is|sure|certainly|okay|of course)\b.*[:!.]?\s*$", lines[0].strip(), re.I) \
+            and (lines[0].strip().endswith(":") or len(lines) > 2):
+        lines = lines[1:]
+    # Drop a trailing explanatory note
+    while lines and (not lines[-1].strip() or re.match(r"^(\(|note:|this poem|i hope)", lines[-1].strip(), re.I)):
+        lines.pop()
+    text = "\n".join(lines)
+    text = re.sub(r"^\s*#+\s*", "", text, flags=re.M)      # markdown headings
+    text = re.sub(r"^\s*[-*]{3,}\s*$", "", text, flags=re.M)  # horizontal rules
+    text = re.sub(r"[*_]{1,3}", "", text)                   # bold/italic markers
+    text = re.sub(r"[ \t]+\n", "\n", text)                 # trailing spaces
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    text = text.strip().strip('"\u201c\u201d').strip()
+    return text
+
+
+def generate_poem_with_fallback(provider, model, prompt, base64_image):
+    """Try the configured provider, then the other one. Returns a cleaned poem or raises."""
+    attempts = [(provider, model)]
+    other = "openai" if provider == "anthropic" else "anthropic"
+    attempts.append((other, FALLBACK_MODELS[other]))
+    # Also retry the primary provider's backup model before switching vendors
+    if model != FALLBACK_MODELS[provider]:
+        attempts.insert(1, (provider, FALLBACK_MODELS[provider]))
+
+    last_error = None
+    for prov, mdl in attempts:
+        try:
+            t0 = time()
+            if prov == "anthropic":
+                raw = _generate_poem_anthropic(mdl, prompt, base64_image)
+            else:
+                raw = _generate_poem_openai(mdl, prompt, base64_image)
+            poem = clean_poem(raw)
+            if len(poem.split()) < 6:
+                raise ValueError(f"Poem too short: {raw!r}")
+            logging.info(f"Poem generated by {prov}/{mdl} in {time() - t0:.1f}s")
+            return poem
+        except Exception as e:
+            last_error = e
+            logging.warning(f"AI attempt failed ({prov}/{mdl}): {e}")
+    raise RuntimeError(f"All AI attempts failed: {last_error}")
+
+
 def encode_image(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode('utf-8')
@@ -205,8 +270,11 @@ def encode_image(image_path):
 
 def _generate_poem_openai(model, prompt, base64_image):
     """Generate a poem using OpenAI's vision API."""
+    if not openai_client:
+        raise RuntimeError("OpenAI API key not configured. Set OPENAI_API_KEY in .env")
     response = openai_client.chat.completions.create(
         model=model,
+        max_completion_tokens=1024,
         messages=[
             {
                 "role": "user",
@@ -270,7 +338,14 @@ def print_poem(poem):
         print('------------------')
 
         # Sending full_text ensures the footer prints
-        response = requests.post("http://127.0.0.1:5002", json={"text": full_text})
+        # Warn early if the printer isn't connected (poem stays queued and prints when it reconnects)
+        try:
+            status = requests.get("http://127.0.0.1:5002", timeout=3).json()
+            if not status.get("ready"):
+                logging.warning(f"Printer not ready: {status}")
+        except Exception as e:
+            logging.warning(f"Printer status check failed: {e}")
+        response = requests.post("http://127.0.0.1:5002", json={"text": full_text}, timeout=10)
         print(f"Printer response: {response.text}")
 
     except Exception as e:
