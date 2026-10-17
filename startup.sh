@@ -19,14 +19,10 @@ if [ $? -ne 0 ]; then
 fi
 echo "Virtual environment activated." >> /home/shschubert/PoetryCamera/startup.log 2>&1
 
-# Set PYTHONPATH to include system site-packages
-export PYTHONPATH=$PYTHONPATH:/usr/lib/python3/dist-packages
-echo "PYTHONPATH: $PYTHONPATH" >> /home/shschubert/PoetryCamera/startup.log 2>&1
 
 # Log the Python path and version
 echo "Python path: $(which python3)" >> /home/shschubert/PoetryCamera/startup.log 2>&1
 echo "Python version: $(python3 --version)" >> /home/shschubert/PoetryCamera/startup.log 2>&1
-echo "Environment variables: $(env)" >> /home/shschubert/PoetryCamera/startup.log 2>&1
 
 # Start the network connection check script
 echo "Starting network connection check..." >> /home/shschubert/PoetryCamera/startup.log 2>&1
@@ -39,7 +35,7 @@ echo "Network connection check started." >> /home/shschubert/PoetryCamera/startu
 
 # Start the Web Interface on port 8000 (always running)
 echo "Starting Web Interface on port 8000..." >> /home/shschubert/PoetryCamera/startup.log 2>&1
-python3 -m gunicorn -c gunicorn_config.py --bind 0.0.0.0:8000 web_interface.app:app >> /home/shschubert/PoetryCamera/startup.log 2>&1 &
+python3 -m gunicorn -c gunicorn_config.py --bind 0.0.0.0:8000 --control-socket /tmp/gunicorn-web.ctl web_interface.app:app >> /home/shschubert/PoetryCamera/startup.log 2>&1 &
 if [ $? -ne 0 ]; then
     echo "Failed to start Web Interface" >> /home/shschubert/PoetryCamera/startup.log 2>&1
 else
@@ -58,7 +54,7 @@ if grep -q "OPENAI_API_KEY" .env; then
 
         # Start the Cat Printer service using Gunicorn
         echo "Starting Cat Printer service on port 5002..." >> /home/shschubert/PoetryCamera/startup.log 2>&1
-        gunicorn -c gunicorn_config.py printer.scripts.cat_printer:app --bind 0.0.0.0:5002 >> /home/shschubert/PoetryCamera/startup.log 2>&1 &
+        gunicorn -c gunicorn_config.py --control-socket /tmp/gunicorn-printer.ctl printer.scripts.cat_printer:app --bind 0.0.0.0:5002 >> /home/shschubert/PoetryCamera/startup.log 2>&1 &
         if [ $? -ne 0 ]; then
             echo "Failed to start Cat Printer service" >> /home/shschubert/PoetryCamera/startup.log 2>&1
             exit 1

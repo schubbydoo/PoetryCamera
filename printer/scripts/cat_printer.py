@@ -1,5 +1,7 @@
 import asyncio
+import json
 import platform
+import subprocess
 import time
 import os
 import tempfile
@@ -7,6 +9,7 @@ import sys
 import traceback
 
 from bleak import BleakClient, BleakScanner
+from bleak.backends.device import BLEDevice
 from bleak.exc import BleakError
 import select
 
@@ -32,12 +35,27 @@ app = Flask(__name__)
 _printer_instance = None
 _ble_thread = None
 
+def _load_printer_config():
+    """Load printer name and MAC from the app config file."""
+    config_path = os.path.join(os.path.dirname(__file__), "../../poetry_camera_config.json")
+    try:
+        with open(os.path.abspath(config_path)) as f:
+            cfg = json.load(f)
+        cat_cfg = cfg.get("printer", {}).get("cat_printer", {})
+        return cat_cfg.get("name", "MX06"), cat_cfg.get("mac_address", "")
+    except Exception as e:
+        logging.warning(f"Could not load printer config: {e}, using defaults")
+        return "MX06", ""
+
+
 def get_printer():
     """Get or create the global printer instance."""
     global _printer_instance, _ble_thread
     if _printer_instance is None:
         logging.info("Initializing CatPrinter instance...")
-        _printer_instance = CatPrinter(start_services=False)
+        printer_name, printer_mac = _load_printer_config()
+        logging.info(f"Printer config: name={printer_name} mac={printer_mac}")
+        _printer_instance = CatPrinter(printer_name=printer_name, printer_mac=printer_mac, start_services=False)
         # Start BLE connection in a background thread
         _ble_thread = threading.Thread(target=_run_ble_loop, daemon=True)
         _ble_thread.start()
@@ -187,30 +205,50 @@ class CatPrinter:
             
             try:
                 logging.info("Attempting to connect to the printer")
-                scanner = BleakScanner(detection_callback=self.detect_printer)
-                await scanner.start()
-                for _ in range(50):
-                    await asyncio.sleep(0.1)
-                    if self.device:
-                        break
-                
-                # FIX: Wrap stop() in try-except to avoid crashing if already stopped
-                try:
-                    await scanner.stop()
-                except Exception as stop_e:
-                    logging.warning(f"Scanner stop ignored: {stop_e}")
+                # Connect directly via pre-computed BlueZ dbus path to avoid any
+                # StartDiscovery call, which conflicts with the propmanager GATT
+                # peripheral server running on the same adapter.
+                if self.printer_mac:
+                    dbus_path = "/org/bluez/hci0/dev_" + self.printer_mac.replace(":", "_")
+                    client_target = BLEDevice(
+                        address=self.printer_mac,
+                        name=self.printer_name,
+                        details={"path": dbus_path},
+                        rssi=-70,
+                    )
+                    logging.info(f"Connecting directly to printer MAC {self.printer_mac} via {dbus_path}")
+                else:
+                    scanner = BleakScanner(detection_callback=self.detect_printer)
+                    await scanner.start()
+                    for _ in range(50):
+                        await asyncio.sleep(0.1)
+                        if self.device:
+                            break
+                    try:
+                        await scanner.stop()
+                    except Exception as stop_e:
+                        logging.warning(f"Scanner stop ignored: {stop_e}")
+                    if not self.device:
+                        raise BleakError(f"No device named {self.printer_name} or MAC {self.printer_mac} could be found.")
+                    client_target = self.device
 
-                if not self.device:
-                    raise BleakError(f"No device named {self.printer_name} or MAC {self.printer_mac} could be found.")
-                
-                async with BleakClient(self.device) as client:
+                disconnected_event = asyncio.Event()
+
+                def on_disconnect(c):
+                    self.ready = False
+                    logging.info("Printer BLE disconnected - will reconnect")
+                    disconnected_event.set()
+
+                async with BleakClient(client_target, disconnected_callback=on_disconnect) as client:
+                    disconnected_event.clear()
+                    self.transmit = True
                     await client.start_notify(self.NotifyCharacteristic, self.notification_handler)
                     logging.info("Printer ready")
                     
                     # FIX: Reset retry count on successful connection
                     retry_count = 0 
                     
-                    while True:
+                    while not disconnected_event.is_set():
                         while not self.ready and not self.awaiting_status:
                             logging.debug("Awaiting printer status")
                             self.awaiting_status = True
@@ -229,26 +267,44 @@ class CatPrinter:
                             while data:
                                 await client.write_gatt_char(self.PrinterCharacteristic, bytes(data[:self.PacketLength]))
                                 data = data[self.PacketLength:]
-                                while not self.transmit and data:
+                                while not self.transmit and data and not disconnected_event.is_set():
                                     await asyncio.sleep(0.01)
                                 await asyncio.sleep(0.01)
                             await asyncio.sleep(0.05)
                         else:
                             logging.debug("Idle state - no data to print")
-                            await asyncio.sleep(1)  # Increase idle sleep time
+                            try:
+                                await asyncio.wait_for(disconnected_event.wait(), timeout=1.0)
+                            except asyncio.TimeoutError:
+                                pass
 
             except Exception as e:
                 self.ready = False
+                err_str = str(e)
                 logging.error(f"Exception in connect_and_send: {e}")
                 traceback.print_exc(file=sys.stdout)
-                
-                # FIX: Increment retry_count so logic works
-                retry_count += 1
-                
-                # Exponential backoff
-                wait_time = min(5 * retry_count, 60)
-                logging.info(f"Retrying connection in {wait_time} seconds (Attempt {retry_count})...")
-                await asyncio.sleep(wait_time)
+
+                if "InProgress" in err_str:
+                    # BlueZ adapter is temporarily busy (e.g. propmanager GATT server
+                    # initialising). Disconnect any stale connection and retry quickly
+                    # with a fixed short wait — don't grow the backoff counter.
+                    logging.info("BlueZ busy (InProgress) — disconnecting stale connection and retrying in 5 s...")
+                    try:
+                        await asyncio.get_event_loop().run_in_executor(
+                            None,
+                            lambda: subprocess.run(
+                                ["bluetoothctl", "disconnect", self.printer_mac],
+                                capture_output=True, timeout=5
+                            )
+                        )
+                    except Exception:
+                                pass
+                    await asyncio.sleep(5)
+                else:
+                    retry_count += 1
+                    wait_time = min(5 * retry_count, 60)
+                    logging.info(f"Retrying connection in {wait_time} seconds (Attempt {retry_count})...")
+                    await asyncio.sleep(wait_time)
 
     def drawTestPattern(self, image_data, feed_amount=0, energy=0x2EE0):
         # Prepare a test pattern or image data for printing, including paper feed commands.
@@ -422,7 +478,7 @@ class CatPrinter:
                 "over_temp": True if data[6] & 0b00000100 else False,
                 "battery_low": True if data[6] & 0b00001000 else False,
             }
-            self.ready = data[6] == 0b00000000
+            self.ready = (data[6] & 0b00001111) == 0b00000000
 
     # Commands
     RetractPaper = 0xA0
