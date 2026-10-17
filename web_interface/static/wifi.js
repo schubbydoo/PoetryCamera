@@ -205,14 +205,10 @@ async function addNetwork() {
     const ssid = document.getElementById('new-ssid').value.trim();
     const password = document.getElementById('new-password').value;
     const autoconnect = document.getElementById('new-autoconnect').checked;
+    const saveOnly = document.getElementById('new-save-only').checked;
     
     if (!ssid) {
         showNotification('Please enter a network name', 'warning');
-        return;
-    }
-    
-    if (!password) {
-        showNotification('Please enter a password', 'warning');
         return;
     }
     
@@ -223,11 +219,12 @@ async function addNetwork() {
         const result = await apiCall('/api/wifi/connect', 'POST', {
             ssid: ssid,
             password: password,
-            autoconnect: autoconnect
+            autoconnect: autoconnect,
+            connect_now: !saveOnly
         });
         
         if (result.success) {
-            showNotification(`Connected to ${ssid}!`, 'success');
+            showNotification(result.message || `Saved ${ssid}`, result.connected ? 'success' : 'info');
             document.getElementById('new-ssid').value = '';
             document.getElementById('new-password').value = '';
             loadSavedNetworks();

@@ -157,80 +157,93 @@ class WiFiManager:
         """Get list of saved WiFi networks."""
         networks = []
         try:
+            # NAME goes last so names containing ':' or spaces split cleanly
             result = subprocess.run(
-                ["nmcli", "-t", "-f", "NAME,TYPE,AUTOCONNECT", "connection", "show"],
+                ["nmcli", "-t", "-f", "TYPE,AUTOCONNECT,NAME", "connection", "show"],
                 capture_output=True,
                 text=True,
                 timeout=self.CMD_TIMEOUT_MEDIUM
             )
             
             for line in result.stdout.strip().split('\n'):
-                if line:
-                    parts = line.split(':')
-                    if len(parts) >= 3 and parts[1] == "802-11-wireless":
-                        name = parts[0]
-                        # Skip the AP mode connection
-                        if name != self.ap_connection_name:
-                            networks.append({
-                                "name": name,
-                                "autoconnect": parts[2] == "yes"
-                            })
+                parts = line.split(':', 2)
+                if len(parts) == 3 and parts[0] == "802-11-wireless":
+                    name = parts[2].replace('\\:', ':')
+                    # Skip the AP mode connection
+                    if name != self.ap_connection_name:
+                        networks.append({
+                            "name": name,
+                            "autoconnect": parts[1] == "yes"
+                        })
                             
         except Exception as e:
             logger.error(f"Error getting saved networks: {e}")
         
         return networks
     
-    def connect_network(self, ssid, password, autoconnect=True):
-        """Connect to a WiFi network."""
+    def _find_profile(self, ssid):
+        """Return the saved profile name for an SSID (handles older underscore-style names)."""
+        saved = {n["name"] for n in self.get_saved_networks()}
+        for candidate in (ssid, ssid.replace(' ', '_')):
+            if candidate in saved:
+                return candidate
+        return None
+    
+    def connect_network(self, ssid, password, autoconnect=True, connect_now=True):
+        """Save a WiFi network profile and optionally connect to it.
+        
+        The profile is created directly (not via 'device wifi connect'), so networks
+        that are out of range, or whose names contain spaces, can be preprogrammed.
+        An empty password saves an open network.
+        """
         try:
-            connection_name = ssid.replace(' ', '_')
+            ssid = ssid.strip()
+            profile = self._find_profile(ssid)
+            auto = "yes" if autoconnect else "no"
             
-            # Check if connection already exists
-            existing = subprocess.run(
-                ["nmcli", "connection", "show", connection_name],
-                capture_output=True,
-                timeout=self.CMD_TIMEOUT_SHORT
+            if profile:
+                modify = ["sudo", "nmcli", "connection", "modify", "id", profile,
+                          "connection.autoconnect", auto]
+                if password:
+                    modify += ["wifi-sec.key-mgmt", "wpa-psk", "wifi-sec.psk", password]
+                subprocess.run(modify, check=True, capture_output=True, text=True,
+                               timeout=self.CMD_TIMEOUT_MEDIUM)
+            else:
+                profile = ssid
+                add = ["sudo", "nmcli", "connection", "add", "type", "wifi",
+                       "ifname", self.interface, "con-name", profile, "ssid", ssid,
+                       "connection.autoconnect", auto]
+                if password:
+                    add += ["wifi-sec.key-mgmt", "wpa-psk", "wifi-sec.psk", password]
+                result = subprocess.run(add, capture_output=True, text=True,
+                                        timeout=self.CMD_TIMEOUT_MEDIUM)
+                if result.returncode != 0:
+                    error_msg = (result.stderr or result.stdout or "Failed to save network").strip()
+                    logger.error(f"Failed to save {ssid}: {error_msg}")
+                    return {"success": False, "error": error_msg}
+            
+            logger.info(f"Saved network profile: {ssid}")
+            if not connect_now:
+                return {"success": True, "saved": True, "connected": False,
+                        "message": f"Saved {ssid}. It will connect automatically when in range."}
+            
+            result = subprocess.run(
+                ["sudo", "nmcli", "connection", "up", "id", profile],
+                capture_output=True, text=True, timeout=30
             )
-            
-            if existing.returncode == 0:
-                # Connection exists, update password and connect
-                subprocess.run(
-                    ["sudo", "nmcli", "connection", "modify", connection_name,
-                     "wifi-sec.psk", password],
-                    check=True,
-                    timeout=self.CMD_TIMEOUT_MEDIUM
-                )
-                result = subprocess.run(
-                    ["sudo", "nmcli", "connection", "up", connection_name],
-                    capture_output=True,
-                    text=True,
-                    timeout=30
-                )
-            else:
-                # Create new connection
-                result = subprocess.run(
-                    ["sudo", "nmcli", "device", "wifi", "connect", ssid,
-                     "password", password, "name", connection_name],
-                    capture_output=True,
-                    text=True,
-                    timeout=30
-                )
-            
             if result.returncode == 0:
-                # Set autoconnect
-                subprocess.run(
-                    ["sudo", "nmcli", "connection", "modify", connection_name,
-                     "connection.autoconnect", "yes" if autoconnect else "no"],
-                    timeout=self.CMD_TIMEOUT_SHORT
-                )
                 logger.info(f"Successfully connected to {ssid}")
-                return {"success": True, "message": f"Connected to {ssid}"}
-            else:
-                error_msg = result.stderr or "Connection failed"
-                logger.error(f"Failed to connect to {ssid}: {error_msg}")
-                return {"success": False, "error": error_msg}
+                return {"success": True, "saved": True, "connected": True,
+                        "message": f"Connected to {ssid}"}
+            
+            error_msg = (result.stderr or "Connection failed").strip()
+            logger.warning(f"Saved {ssid} but could not connect now: {error_msg}")
+            return {"success": True, "saved": True, "connected": False,
+                    "message": f"Saved {ssid}, but could not connect right now "
+                               f"(it may be out of range). It will connect automatically when in range."}
                 
+        except subprocess.CalledProcessError as e:
+            return {"success": False, "error": (e.stderr or str(e)).strip()}
         except subprocess.TimeoutExpired:
             return {"success": False, "error": "Connection timed out"}
         except Exception as e:
@@ -238,12 +251,12 @@ class WiFiManager:
             return {"success": False, "error": str(e)}
     
     def forget_network(self, ssid):
-        """Remove a saved WiFi network."""
+        """Remove a saved WiFi network (ssid is the saved profile name)."""
         try:
-            connection_name = ssid.replace(' ', '_')
+            connection_name = self._find_profile(ssid) or ssid
             
             result = subprocess.run(
-                ["sudo", "nmcli", "connection", "delete", connection_name],
+                ["sudo", "nmcli", "connection", "delete", "id", connection_name],
                 capture_output=True,
                 text=True,
                 timeout=self.CMD_TIMEOUT_MEDIUM

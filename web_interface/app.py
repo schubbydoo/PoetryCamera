@@ -246,10 +246,10 @@ def api_wifi_connect():
     
     if not ssid:
         return jsonify({"success": False, "error": "SSID is required"}), 400
-    if not password:
-        return jsonify({"success": False, "error": "Password is required"}), 400
+    password = password or ""  # empty password = open network
+    connect_now = data.get('connect_now', True)
     
-    result = wifi_manager.connect_network(ssid, password, autoconnect)
+    result = wifi_manager.connect_network(ssid, password, autoconnect, connect_now)
     status_code = 200 if result.get("success") else 400
     return jsonify(result), status_code
 
