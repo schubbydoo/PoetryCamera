@@ -26,7 +26,12 @@ import threading
 import logging
 from datetime import datetime
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', force=True)
+
+# Seconds after sending a poem during which "no paper" means the poem was cut off
+PRINT_WINDOW = 90
+# Don't reprint a cut-off poem if paper only comes back after this many seconds
+REPRINT_WINDOW = 30 * 60
 
 # Module-level Flask app for Gunicorn
 app = Flask(__name__)
@@ -93,6 +98,7 @@ def http_server_upload():
         return jsonify({
             "transmit": printer.transmit,
             "ready": printer.ready,
+            "reprint_pending": printer.reprint_text is not None,
             "address": printer.device.address if printer.device else None,
             "status": printer.status
         })
@@ -111,6 +117,10 @@ class CatPrinter:
         self.status = {}
         self.image_queue = []
         self.text_queue = []
+        # Paper-out recovery: remember the poem being printed so it can be reprinted
+        self.last_text = None
+        self.last_text_time = 0
+        self.reprint_text = None
         
         # Only start services if requested (not when used as Gunicorn module)
         if start_services:
@@ -255,8 +265,19 @@ class CatPrinter:
                             await client.write_gatt_char(self.PrinterCharacteristic, self.formatMessage(self.GetDevState, [0x00]) + self.formatMessage(self.ControlLattice, self.FinishLattice))
                             await asyncio.sleep(0.5)
                         
+                        # Paper reloaded after a cut-off print: reprint the whole poem once
+                        if (self.reprint_text and self.ready and not self.status.get("no_paper")):
+                            if time.time() - self.last_text_time < REPRINT_WINDOW:
+                                logging.info("Paper back - reprinting the poem that was cut off")
+                                self.text_queue.insert(0, self.reprint_text)
+                            else:
+                                logging.info("Paper back, but cut-off poem is too old - not reprinting")
+                            self.reprint_text = None
+
                         if self.text_queue:
                             text = self.text_queue.pop(0)
+                            self.last_text = text
+                            self.last_text_time = time.time()
                             if text:
                                 self.image_queue.append(self.drawTestPattern(None, -80))
                                 self.image_queue.append(self.drawTestPattern(self.create_text(text), 0, 17000))
@@ -459,19 +480,18 @@ class CatPrinter:
 
     def notification_handler(self, sender, data):
         # Handle notifications from the printer, updating the transmit status and printer status.
-        print("received notification")
-        print("{0}: [ {1} ]".format(sender, " ".join("{:02X}".format(x) for x in data)))
+        # Status is polled about once a second, so only log when something changes
         if tuple(data) == self.XOff:
-            print("Pausing transmission.")
             self.transmit = False
             return
         if tuple(data) == self.XOn:
-            print("Resuming transmission.")
             self.transmit = True
             return
         if data[2] == self.GetDevState:
             self.awaiting_status = False
-            print("printer status byte: {:08b}".format(data[6]))
+            if data[6] != getattr(self, "_last_status_byte", None):
+                logging.info("Printer status byte: {:08b}".format(data[6]))
+                self._last_status_byte = data[6]
             self.status = {
                 "no_paper": True if data[6] & 0b00000001 else False,
                 "cover_open": True if data[6] & 0b00000010 else False,
@@ -479,6 +499,11 @@ class CatPrinter:
                 "battery_low": True if data[6] & 0b00001000 else False,
             }
             self.ready = (data[6] & 0b00001111) == 0b00000000
+            # Out of paper shortly after a poem was sent: it was probably cut off
+            if (self.status["no_paper"] and self.last_text and self.reprint_text is None
+                    and time.time() - self.last_text_time < PRINT_WINDOW):
+                logging.warning("Printer out of paper during a print - will reprint when paper is back")
+                self.reprint_text = self.last_text
 
     # Commands
     RetractPaper = 0xA0

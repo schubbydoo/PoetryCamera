@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # Log the start time
-echo "Starting Poetry Camera..." >> /home/shschubert/PoetryCamera/startup.log 2>&1
+export PYTHONUNBUFFERED=1  # write logs immediately so a power loss does not eat them
+echo "Starting Poetry Camera... $(date)" >> /home/shschubert/PoetryCamera/startup.log 2>&1
 
 # Wait for the system to be ready
 echo "Waiting for system to be ready..." >> /home/shschubert/PoetryCamera/startup.log 2>&1

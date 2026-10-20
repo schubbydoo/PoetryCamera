@@ -2,7 +2,7 @@
 # Poetry Camera Main Application
 # Captures images, generates AI poetry, and prints to thermal printer
 
-import requests, signal, os, base64, subprocess, threading
+import requests, signal, os, sys, base64, subprocess, threading
 from picamera2 import Picamera2
 from gpiozero import LED, Button
 from datetime import datetime
@@ -18,7 +18,11 @@ import random
 from web_interface.config_manager import config_manager
 
 # Setup logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# force=True: config_manager (imported above) already set up logging with a bare format
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', force=True)
+# Flush every line so the log survives a sudden power loss
+sys.stdout.reconfigure(line_buffering=True)
+sys.stderr.reconfigure(line_buffering=True)
 
 logging.info("Server starting")
 logging.info("Connecting to printer")
@@ -92,6 +96,8 @@ def initialize():
     shutter_button.when_pressed = on_press
     shutter_button.when_released = on_release
 
+    threading.Thread(target=paper_watcher, daemon=True).start()
+
     logging.info("Main application ready")
 
 # --- Helper functions to prevent gpiozero crashes ---
@@ -112,6 +118,33 @@ def safe_led_blink(on_time=1, off_time=1):
         led.blink(on_time=on_time, off_time=off_time)
     except RuntimeError:
         pass
+
+paper_out = False
+
+def rest_led():
+    """Idle LED state: steady on, or a slow pulse while the printer is out of paper."""
+    if paper_out:
+        safe_led_blink(on_time=0.1, off_time=1.5)
+    else:
+        safe_led_on()
+
+
+def paper_watcher():
+    """Watch the printer service for a no-paper status so it's noticed at a glance."""
+    global paper_out
+    while True:
+        try:
+            status = requests.get("http://127.0.0.1:5002", timeout=3).json().get("status", {})
+            out_now = bool(status.get("no_paper"))
+            if out_now != paper_out:
+                paper_out = out_now
+                logging.warning("Printer is out of paper - pulsing LED" if paper_out else "Paper detected again")
+                if camera_at_rest:
+                    rest_led()
+        except Exception:
+            pass  # printer service not up yet; try again
+        sleep(2)
+
 
 #############################
 # CORE PHOTO-TO-POEM FUNCTION
@@ -136,7 +169,7 @@ def take_photo_and_print_poem():
         print('----- SUCCESS: image saved locally')
     except Exception as e:
         print(f"Camera Error: {e}")
-        safe_led_on()
+        rest_led()
         camera_at_rest = True
         return
 
@@ -203,12 +236,12 @@ def take_photo_and_print_poem():
         # Never show guests an error; print a canned poem and log the real cause
         logging.exception("Poem generation failed")
         print_poem(random.choice(FALLBACK_POEMS))
-        safe_led_on()
+        rest_led()
         camera_at_rest = True
         return
 
     print_footer()
-    safe_led_on()
+    rest_led()
     camera_at_rest = True
     return
 
@@ -376,7 +409,7 @@ def on_release():
     global press_time
     release_time = time()
     # FIX: Use safe wrapper
-    safe_led_on() 
+    rest_led()
     
     duration = release_time - press_time
 
