@@ -91,9 +91,25 @@
     <p class="has-text-grey is-size-7">
         Latest event: {{ poem_stats.event.start }} to {{ poem_stats.event.end }}
         &middot; busiest hour {{ poem_stats.event.busiest_hour }} ({{ poem_stats.event.busiest_count }})
-        {% if poem_stats.event.avg_seconds %}&middot; avg {{ poem_stats.event.avg_seconds }}s to write{% endif %}
+        &middot; busiest 10 min: {{ poem_stats.event.peak_10min }}
+        {% if poem_stats.event.avg_seconds %}&middot; avg {{ poem_stats.event.avg_seconds }}s to write (slowest {{ poem_stats.event.slowest_seconds }}s){% endif %}
         {% if poem_stats.fallbacks %}&middot; {{ poem_stats.fallbacks }} fallback poem(s) all time{% endif %}
     </p>
+    <h3 class="title is-6 mt-4 mb-2">Event health</h3>
+    <table class="table is-fullwidth is-narrow">
+        <tbody>
+        {% for label, count, detail, ok in poem_stats.event.health %}
+            <tr>
+                <td style="width: 160px;">{{ label }}</td>
+                <td style="width: 60px;">
+                    {% if ok %}<span class="tag is-success is-light">none</span>
+                    {% else %}<span class="tag is-warning is-light">{{ count }}</span>{% endif %}
+                </td>
+                <td class="has-text-grey is-size-7">{{ detail }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
     {% else %}
     <p class="has-text-grey is-size-7">No poems recorded yet.</p>
     {% endif %}

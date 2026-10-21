@@ -16,7 +16,8 @@ import random
 
 # Import configuration manager
 from web_interface.config_manager import config_manager
-from web_interface.poem_stats import record_poem
+from web_interface.poem_stats import record_poem, record_event
+from web_interface.health_monitor import start_health_monitor
 
 # Setup logging
 # force=True: config_manager (imported above) already set up logging with a bare format
@@ -98,6 +99,9 @@ def initialize():
     shutter_button.when_released = on_release
 
     threading.Thread(target=paper_watcher, daemon=True).start()
+    start_health_monitor()
+    for name in ('anthropic', 'openai'):
+        logging.getLogger(name).addHandler(RetryEventHandler())
 
     logging.info("Main application ready")
 
@@ -130,18 +134,53 @@ def rest_led():
         safe_led_on()
 
 
+class RetryEventHandler(logging.Handler):
+    """Count the AI libraries' automatic network retries as health events."""
+    def emit(self, record):
+        try:
+            if "Retrying request" in record.getMessage():
+                record_event("api_retry")
+        except Exception:
+            pass
+
+
 def paper_watcher():
-    """Watch the printer service for a no-paper status so it's noticed at a glance."""
+    """Watch the printer service: pulse the LED when out of paper, and log printer health."""
     global paper_out
+    reprint_pending = False
+    printer_online = None
+    offline_polls = 0
     while True:
         try:
-            status = requests.get("http://127.0.0.1:5002", timeout=3).json().get("status", {})
+            data = requests.get("http://127.0.0.1:5002", timeout=3).json()
+            status = data.get("status", {})
             out_now = bool(status.get("no_paper"))
             if out_now != paper_out:
                 paper_out = out_now
                 logging.warning("Printer is out of paper - pulsing LED" if paper_out else "Paper detected again")
+                record_event("paper_out" if paper_out else "paper_back")
                 if camera_at_rest:
                     rest_led()
+
+            pending = bool(data.get("reprint_pending"))
+            if pending and not reprint_pending:
+                record_event("cutoff")
+            elif reprint_pending and not pending:
+                record_event("reprint")
+            reprint_pending = pending
+
+            # Empty status = printer not connected over Bluetooth (needs 2 polls to count)
+            if status:
+                offline_polls = 0
+                if printer_online is False:
+                    record_event("printer_online")
+                printer_online = True
+            else:
+                offline_polls += 1
+                if offline_polls >= 3 and printer_online is not False:
+                    if printer_online is True:  # only count drops, not slow starts
+                        record_event("printer_offline")
+                        printer_online = False
         except Exception:
             pass  # printer service not up yet; try again
         sleep(2)
@@ -297,6 +336,7 @@ def generate_poem_with_fallback(provider, model, prompt, base64_image):
         except Exception as e:
             last_error = e
             logging.warning(f"AI attempt failed ({prov}/{mdl}): {e}")
+            record_event("ai_failed", {"provider": prov, "model": mdl})
     raise RuntimeError(f"All AI attempts failed: {last_error}")
 
 
