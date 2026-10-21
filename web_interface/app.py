@@ -16,6 +16,7 @@ from flask import (
 from .wifi_manager import wifi_manager
 from .system_manager import system_manager
 from .config_manager import config_manager
+from .poem_stats import get_summary as get_poem_stats
 
 # Create Flask app
 app = Flask(__name__)
@@ -116,7 +117,8 @@ def home():
         wifi_status=wifi_status,
         system_info=system_info,
         printer_config=printer_config,
-        printer_status=printer_status
+        printer_status=printer_status,
+        poem_stats=get_poem_stats()
     )
 
 

@@ -67,6 +67,38 @@
     </div>
 </div>
 
+<!-- Poem Stats -->
+<div class="box mb-5">
+    <h2 class="title is-5">
+        <span class="icon has-text-primary"><i class="fas fa-feather-alt"></i></span>
+        Poems
+    </h2>
+    <div class="level is-mobile">
+        <div class="level-item has-text-centered">
+            <div><p class="heading">Latest event</p><p class="title">{{ poem_stats.event.count if poem_stats.event else 0 }}</p></div>
+        </div>
+        <div class="level-item has-text-centered">
+            <div><p class="heading">Today</p><p class="title">{{ poem_stats.today }}</p></div>
+        </div>
+        <div class="level-item has-text-centered">
+            <div><p class="heading">Last 24 h</p><p class="title">{{ poem_stats.last_24h }}</p></div>
+        </div>
+        <div class="level-item has-text-centered">
+            <div><p class="heading">All time</p><p class="title">{{ poem_stats.total }}</p></div>
+        </div>
+    </div>
+    {% if poem_stats.event %}
+    <p class="has-text-grey is-size-7">
+        Latest event: {{ poem_stats.event.start }} to {{ poem_stats.event.end }}
+        &middot; busiest hour {{ poem_stats.event.busiest_hour }} ({{ poem_stats.event.busiest_count }})
+        {% if poem_stats.event.avg_seconds %}&middot; avg {{ poem_stats.event.avg_seconds }}s to write{% endif %}
+        {% if poem_stats.fallbacks %}&middot; {{ poem_stats.fallbacks }} fallback poem(s) all time{% endif %}
+    </p>
+    {% else %}
+    <p class="has-text-grey is-size-7">No poems recorded yet.</p>
+    {% endif %}
+</div>
+
 <!-- Status Section -->
 <div class="columns">
     <!-- Device Status -->

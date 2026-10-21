@@ -111,3 +111,6 @@ Desktop.ini
 ###############################################################################
 .cursor/
 .cursorignore
+
+# Runtime poem counter
+poem_log.jsonl
