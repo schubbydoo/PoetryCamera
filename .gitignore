@@ -114,3 +114,5 @@ Desktop.ini
 
 # Runtime poem counter
 poem_log.jsonl
+event_log.jsonl
+health_state.json
