@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Dashboard - Poetry Camera{% endblock %}
+{% block page_title %}Dashboard - Poetry Camera{% endblock %}
 
 {% block content %}
 <!-- Welcome Box -->
@@ -29,7 +29,7 @@
             </span>
             <h2 class="title is-5 mt-3">WiFi Settings</h2>
             <p class="subtitle is-6 has-text-grey">Connect to your network</p>
-            <a href="{{ url_for('wifi') }}" class="button is-info is-outlined">
+            <a href="{{ url_for('propkit.system') }}" class="button is-info is-outlined">
                 <span class="icon"><i class="fas fa-cog"></i></span>
                 <span>Configure</span>
             </a>
@@ -57,9 +57,9 @@
             <span class="icon is-large has-text-warning">
                 <i class="fas fa-2x fa-cogs"></i>
             </span>
-            <h2 class="title is-5 mt-3">System</h2>
-            <p class="subtitle is-6 has-text-grey">Updates & maintenance</p>
-            <a href="{{ url_for('system') }}" class="button is-warning is-outlined">
+            <h2 class="title is-5 mt-3">Updates</h2>
+            <p class="subtitle is-6 has-text-grey">Check for new software</p>
+            <a href="{{ url_for('updates') }}" class="button is-warning is-outlined">
                 <span class="icon"><i class="fas fa-cog"></i></span>
                 <span>Manage</span>
             </a>
@@ -278,7 +278,7 @@
 </div>
 {% endblock %}
 
-{% block scripts %}
+{% block page_scripts %}
 <script>
 document.getElementById('btn-test-print').addEventListener('click', async function() {
     const btn = this;

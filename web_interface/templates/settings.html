@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Settings - Poetry Camera{% endblock %}
+{% block page_title %}Settings - Poetry Camera{% endblock %}
 
 {% block content %}
 <h1 class="title">
@@ -317,6 +317,6 @@
 </div>
 {% endblock %}
 
-{% block scripts %}
+{% block page_scripts %}
 <script src="{{ url_for('static', filename='settings.js') }}"></script>
 {% endblock %}

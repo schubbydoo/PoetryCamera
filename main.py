@@ -460,9 +460,11 @@ def on_press():
 def on_release():
     global press_time
     release_time = time()
-    # FIX: Use safe wrapper
-    rest_led()
-    
+    # Only restore the idle LED when nothing is running: a press during a photo used to cancel
+    # the activity blink, which made the camera look finished (or broken) while it was still working.
+    if camera_at_rest:
+        rest_led()
+
     duration = release_time - press_time
 
     if duration <= 0.05:

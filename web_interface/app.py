@@ -5,6 +5,7 @@ Flask application providing web-based configuration and management.
 """
 
 import os
+import sys
 import requests
 from functools import wraps
 from datetime import datetime
@@ -17,6 +18,12 @@ from .wifi_manager import wifi_manager
 from .system_manager import system_manager
 from .config_manager import config_manager
 from .poem_stats import get_summary as get_poem_stats
+from .health_monitor import NETGUARD_STATE_DIR
+
+# Shared UI kit (https://github.com/schubbydoo/propkit), cloned to ~/propkit on the Pi
+sys.path.insert(0, os.path.expanduser("~/propkit"))
+import propkit
+from propkit import flask_app as propkit_flask
 
 # Create Flask app
 app = Flask(__name__)
@@ -35,6 +42,9 @@ def login_required(f):
     return decorated_function
 
 
+ACTIVE_TAB = {'home': 'dashboard', 'settings': 'settings', 'updates': 'updates', 'account': 'account'}
+
+
 @app.context_processor
 def inject_globals():
     """Inject global variables into all templates."""
@@ -42,6 +52,7 @@ def inject_globals():
         'version': system_manager.get_version(),
         'current_year': datetime.now().year,
         'is_in_ap_mode': wifi_manager.is_ap_mode(),
+        'active_page': ACTIVE_TAB.get(request.endpoint),
         'current_user': {'is_authenticated': session.get('logged_in', False)}
     }
 
@@ -122,20 +133,11 @@ def home():
     )
 
 
-@app.route('/wifi')
+@app.route('/updates')
 @login_required
-def wifi():
-    """WiFi management page."""
-    wifi_status = wifi_manager.get_current_connection()
-    return render_template('wifi.html', wifi_status=wifi_status)
-
-
-@app.route('/system')
-@login_required
-def system():
-    """System management page."""
-    system_info = system_manager.get_system_info()
-    return render_template('system.html', system_info=system_info)
+def updates():
+    """Software updates page."""
+    return render_template('updates.html', system_info=system_manager.get_system_info())
 
 
 @app.route('/settings')
@@ -187,106 +189,6 @@ def api_status():
     })
 
 
-# ==================== API Routes - WiFi ====================
-
-@app.route('/api/wifi/status')
-@login_required
-def api_wifi_status():
-    """Get current WiFi status."""
-    status = wifi_manager.get_current_connection()
-    return jsonify({
-        "success": True,
-        **status
-    })
-
-
-@app.route('/api/wifi/scan')
-@login_required
-def api_wifi_scan():
-    """Scan for available WiFi networks."""
-    try:
-        networks = wifi_manager.scan_networks()
-        return jsonify({
-            "success": True,
-            "networks": networks
-        })
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
-
-
-@app.route('/api/wifi/networks')
-@login_required
-def api_wifi_networks():
-    """Get saved WiFi networks."""
-    try:
-        networks = wifi_manager.get_saved_networks()
-        return jsonify({
-            "success": True,
-            "networks": networks
-        })
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
-
-
-@app.route('/api/wifi/network-details')
-@login_required
-def api_wifi_network_details():
-    """Get details of one saved WiFi network (never includes the password)."""
-    name = request.args.get('name', '')
-    try:
-        details = wifi_manager.get_network_details(name) if name else None
-        if not details:
-            return jsonify({"success": False, "error": "Network not found"}), 404
-        return jsonify({"success": True, "details": details})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-@app.route('/api/wifi/connect', methods=['POST'])
-@login_required
-def api_wifi_connect():
-    """Connect to a WiFi network."""
-    data = request.get_json()
-    if not data:
-        return jsonify({"success": False, "error": "No data provided"}), 400
-    
-    ssid = data.get('ssid')
-    password = data.get('password')
-    autoconnect = data.get('autoconnect', True)
-    
-    if not ssid:
-        return jsonify({"success": False, "error": "SSID is required"}), 400
-    password = password or ""  # empty password = open network
-    connect_now = data.get('connect_now', True)
-    
-    result = wifi_manager.connect_network(ssid, password, autoconnect, connect_now)
-    status_code = 200 if result.get("success") else 400
-    return jsonify(result), status_code
-
-
-@app.route('/api/wifi/forget', methods=['POST'])
-@login_required
-def api_wifi_forget():
-    """Forget a saved WiFi network."""
-    data = request.get_json()
-    if not data:
-        return jsonify({"success": False, "error": "No data provided"}), 400
-    
-    ssid = data.get('ssid')
-    if not ssid:
-        return jsonify({"success": False, "error": "SSID is required"}), 400
-    
-    result = wifi_manager.forget_network(ssid)
-    status_code = 200 if result.get("success") else 400
-    return jsonify(result), status_code
-
-
 # ==================== API Routes - System ====================
 
 @app.route('/api/check_updates')
@@ -305,14 +207,6 @@ def api_apply_updates():
     result = system_manager.apply_updates()
     status_code = 200 if result.get("success") else 500
     return jsonify(result), status_code
-
-
-@app.route('/api/reboot', methods=['POST'])
-@login_required
-def api_reboot():
-    """Reboot the device."""
-    result = system_manager.reboot()
-    return jsonify(result)
 
 
 # ==================== API Routes - Settings ====================
@@ -454,6 +348,44 @@ def api_printer_test():
             "success": False,
             "error": str(e)
         }), 500
+
+
+# ==================== Shared System tab (propkit) ====================
+
+def _printer_rows():
+    """Extra System-tab row: what the printer service reports."""
+    try:
+        d = requests.get("http://127.0.0.1:5002", timeout=1).json()
+        st = d.get("status") or {}
+        if st.get("no_paper"):
+            return [{"k": "Printer", "v": "Out of paper", "color": "bad"}]
+        if st.get("cover_open") or st.get("over_temp"):
+            return [{"k": "Printer", "v": "Cover open or too hot", "color": "warn"}]
+        return [{"k": "Printer", "v": "Ready" if d.get("ready") else "Connecting", "color": "good" if d.get("ready") else "warn"}]
+    except Exception:
+        return [{"k": "Printer", "v": "Printer service not responding", "color": "bad"}]
+
+
+def _software_rows():
+    try:
+        today = get_poem_stats().get("today", 0)
+    except Exception:
+        today = "?"
+    return [{"k": "Poems today", "v": str(today), "color": None}]
+
+
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+PROP_CONFIG = propkit.PropConfig(
+    name="Poetry Camera", brand=("POETRY", "CAMERA"),
+    tabs=[("dashboard", "/", "Dashboard"), ("settings", "/settings", "Settings"),
+          ("updates", "/updates", "Updates"), ("account", "/settings/account", "Account"),
+          ("system", "/system", "System"), ("logout", "/logout", "Logout")],
+    service_name="poetrycamera.service", base_dir=BASE_DIR,
+    state_dir=os.path.abspath(NETGUARD_STATE_DIR),
+    hotspot_profile="PoetCam", auth=login_required,
+    extra_health=_printer_rows, extra_software=_software_rows,
+)
+propkit_flask.install(app, PROP_CONFIG)
 
 
 # ==================== Error Handlers ====================

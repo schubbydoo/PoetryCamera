@@ -116,3 +116,4 @@ Desktop.ini
 poem_log.jsonl
 event_log.jsonl
 health_state.json
+netguard_state/

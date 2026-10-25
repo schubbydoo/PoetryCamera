@@ -12,6 +12,7 @@ import os
 import signal
 import socket
 import subprocess
+import sys
 import threading
 import time
 from datetime import datetime
@@ -53,7 +54,28 @@ def _wifi_ssid():
         return None
 
 
+# Shared network-robustness module (https://github.com/schubbydoo/netguard), cloned to ~/netguard on the Pi.
+NETGUARD_DIR = os.path.expanduser("~/netguard")
+NETGUARD_STATE_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "netguard_state"))
+try:
+    if os.path.isdir(NETGUARD_DIR) and NETGUARD_DIR not in sys.path:
+        sys.path.insert(0, NETGUARD_DIR)
+    import netguard
+except Exception:  # missing or broken: fall back to the built-in checks below
+    netguard = None
+
+_guard = None  # the running netguard.Monitor, once started
+
+
 def internet_ok():
+    """True only if the AI service is reachable right now (a fresh check, used at button release)."""
+    try:
+        if _guard is not None:
+            return _guard.check_now().usable
+        if netguard is not None:
+            return netguard.probe(["api.anthropic.com"]).state == netguard.OK
+    except Exception:
+        pass
     try:
         socket.create_connection(INTERNET_HOST, timeout=3).close()
         return True
@@ -63,9 +85,9 @@ def internet_ok():
 
 AP_NAME = "PoetCam"
 AP_GRACE = 180        # seconds in setup hotspot with nobody connected before we leave it
-OFFLINE_GRACE = 90    # seconds without wifi before we try to reconnect
-NO_INTERNET_GRACE = 120
-HEAL_COOLDOWN = 300
+OFFLINE_GRACE = 30    # seconds without wifi before we try to reconnect (same as Zoltar)
+NO_INTERNET_GRACE = 30
+HEAL_COOLDOWN = 60
 
 
 def _ap_active():
@@ -147,6 +169,59 @@ def _self_heal(reason, was_ap):
     return False
 
 
+_internet_down_open = False
+
+
+def _on_guard_change(status, old):
+    """Map netguard states to the internet_down / internet_up events the dashboard counts.
+    Wi-Fi joins and drops (wifi_up / wifi_down) are recorded by the loop below, which also sees network switches."""
+    global _internet_down_open
+    try:
+        if status.usable:
+            if _internet_down_open:
+                record_event("internet_up")
+                _internet_down_open = False
+        elif status.state != "NO_LINK" and not _internet_down_open:
+            record_event("internet_down", {"state": status.state})
+            _internet_down_open = True
+    except Exception:
+        logging.exception("netguard change hook failed")
+
+
+def _on_guard_event(ev):
+    try:
+        if ev.get("type") == "heal_done":
+            if ev.get("ok"):
+                record_event("self_heal", {"reason": ev.get("reason"), "network": ev.get("network")})
+            else:
+                record_event("self_heal_failed", {"reason": ev.get("reason")})
+    except Exception:
+        logging.exception("netguard event hook failed")
+
+
+def _start_netguard():
+    global _guard
+    if netguard is None:
+        logging.warning("netguard not found in %s; using built-in network checks", NETGUARD_DIR)
+        return
+    try:
+        _guard = netguard.Monitor(
+            hosts=["api.anthropic.com"],           # a poem cannot be written without this
+            optional_hosts=["api.openai.com"],     # fallback provider
+            state_dir=NETGUARD_STATE_DIR,
+            on_change=_on_guard_change, on_event=_on_guard_event,
+            grace={"NO_LINK": OFFLINE_GRACE, "NO_GATEWAY": OFFLINE_GRACE, "NO_INTERNET": NO_INTERNET_GRACE},
+            cooldown=HEAL_COOLDOWN,
+            hotspot_profiles=(AP_NAME,),           # setup hotspot has no uplink: not an outage, never a heal target
+            skip_heal_when=lambda: _ap_active() and _ap_has_clients(),
+            use_sudo=True)
+        _guard.start()
+        logging.info("netguard %s monitoring started", netguard.__version__)
+    except Exception:
+        _guard = None
+        logging.exception("netguard failed to start; using built-in network checks")
+
+
 def _note_restart():
     """Compare with the last heartbeat to tell clean restarts from power loss."""
     try:
@@ -168,6 +243,7 @@ def _monitor():
             break
         time.sleep(5)
     _note_restart()
+    _start_netguard()
 
     UNKNOWN = object()
     current_ssid = UNKNOWN
@@ -189,7 +265,7 @@ def _monitor():
                     record_event("wifi_down")
                 current_ssid = ssid
 
-            if ssid and not ap:
+            if _guard is None and ssid and not ap:  # built-in fallback when netguard is unavailable
                 if internet_ok():
                     internet_fails = 0
                     if internet_up is False:
@@ -203,8 +279,8 @@ def _monitor():
 
             # --- self-heal: leave a forgotten hotspot, rejoin lost wifi ---
             ap_since = (ap_since or now) if (ap and not _ap_has_clients()) else None
-            offline_since = (offline_since or now) if (not ap and not ssid) else None
-            no_net_since = (no_net_since or now) if (not ap and ssid and internet_up is False) else None
+            offline_since = (offline_since or now) if (_guard is None and not ap and not ssid) else None
+            no_net_since = (no_net_since or now) if (_guard is None and not ap and ssid and internet_up is False) else None
 
             reason = None
             if ap_since and now - ap_since > AP_GRACE:

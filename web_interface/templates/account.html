@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Account Settings - Poetry Camera{% endblock %}
+{% block page_title %}Account Settings - Poetry Camera{% endblock %}
 
 {% block content %}
 <h1 class="title">
@@ -92,7 +92,7 @@
 </div>
 {% endblock %}
 
-{% block scripts %}
+{% block page_scripts %}
 <script>
 document.getElementById('btn-change-password').addEventListener('click', async function() {
     const currentPassword = document.getElementById('current-password').value;

@@ -285,13 +285,21 @@ class CatPrinter:
 
                         if self.image_queue:
                             data = self.image_queue.pop(0)
+                            # Diagnostics (a few log lines per poem): how much was sent, how long it took,
+                            # and how long the printer held us off with XOff.
+                            sent_t0, sent_total, stalled = time.time(), len(data), 0.0
                             while data:
                                 await client.write_gatt_char(self.PrinterCharacteristic, bytes(data[:self.PacketLength]))
                                 data = data[self.PacketLength:]
+                                stall_t0 = time.time()
                                 while not self.transmit and data and not disconnected_event.is_set():
                                     await asyncio.sleep(0.01)
+                                stalled += time.time() - stall_t0 if time.time() - stall_t0 > 0.05 else 0
                                 await asyncio.sleep(0.01)
                             await asyncio.sleep(0.05)
+                            logging.info("Print data sent: %d bytes in %.1fs (printer paused us %.1fs)%s",
+                                         sent_total, time.time() - sent_t0, stalled,
+                                         "" if self.transmit else " - printer still holding off")
                         else:
                             logging.debug("Idle state - no data to print")
                             try:

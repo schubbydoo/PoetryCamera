@@ -1,266 +1,62 @@
-/* Poetry Camera - Custom Styles */
+/* Poetry Camera - page extras on top of propkit's house style (/static/propkit/style.css).
+   propkit supplies the layout, panels, buttons and forms; this file only adds what the camera's own pages need. */
 
-/* ==================== Layout ==================== */
+/* Font Awesome is not loaded (the camera is often offline); the icons were decoration only. */
+i.fas, i.fab, .icon { display: none; }
+.button .icon, .icon.is-large { display: none; }
 
-html {
-    min-height: 100vh;
-}
+.ap-banner { margin-bottom: 16px; }
+#flash-messages .container:empty { display: none; }
+#flash-messages .notification { margin-bottom: 12px; }
 
-body {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-}
+/* Dashboard */
+.welcome-box { border-color: var(--accent); box-shadow: 6px 6px 0 var(--accent); }
+.feature-card { height: 100%; }
+.version-badge { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent3); }
+.status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: .5em; background: var(--muted); }
+.status-dot.is-success { background: var(--accent); }
+.status-dot.is-warning { background: var(--accent2); }
+.status-dot.is-danger { background: var(--danger); }
+.has-text-centered { text-align: center; }
+.has-text-grey { color: var(--muted); }
+.has-text-success { color: var(--accent); }
+.has-text-danger { color: var(--danger); }
+.has-text-warning { color: var(--accent2); }
+.has-text-info { color: var(--accent3); }
+.mb-5 { margin-bottom: 24px; } .mb-4 { margin-bottom: 16px; } .mt-3 { margin-top: 12px; } .mt-4 { margin-top: 16px; }
 
-.main-content {
-    flex: 1;
-}
-
-.footer {
-    padding: 1.5rem;
-    background-color: #fafafa;
-}
-
-/* ==================== AP Mode Banner ==================== */
-
-.ap-banner {
-    border-radius: 0;
-    margin-bottom: 0;
-    padding: 0.75rem;
-}
-
-/* ==================== Navbar ==================== */
-
-.navbar-item.is-active {
-    background-color: rgba(255, 255, 255, 0.1);
-}
-
-.navbar-item .icon {
-    margin-right: 0.25rem;
-}
-
-/* ==================== Cards & Boxes ==================== */
-
-.welcome-box {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-}
-
-.welcome-box .title {
-    color: white;
-}
-
-.welcome-box .subtitle {
-    color: rgba(255, 255, 255, 0.95) !important;
-}
-
-.welcome-box p.subtitle {
-    color: rgba(255, 255, 255, 0.95) !important;
-}
-
-.welcome-box .has-text-grey {
-    color: rgba(255, 255, 255, 0.9) !important;
-}
-
-.welcome-box .icon {
-    color: white !important;
-}
-
-.feature-card {
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-    height: 100%;
-}
-
-.feature-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-}
-
-/* ==================== Version Badge ==================== */
-
-.version-badge {
-    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', 'Droid Sans Mono', 'Source Code Pro', monospace;
-    background-color: #363636;
-    color: #fff;
-    padding: 0.25em 0.5em;
-    border-radius: 4px;
-    font-size: 0.9em;
-}
-
-/* ==================== Status Indicators ==================== */
-
-.status-dot {
-    display: inline-block;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    margin-right: 0.5em;
-}
-
-.status-dot.is-success { background-color: #48c774; }
-.status-dot.is-warning { background-color: #ffdd57; }
-.status-dot.is-danger { background-color: #f14668; }
-
-/* ==================== Tables ==================== */
-
-.table td {
-    vertical-align: middle;
-}
-
-.table code {
-    background-color: #f5f5f5;
-    padding: 0.2em 0.4em;
-    border-radius: 3px;
-    font-size: 0.9em;
-}
-
-/* ==================== Signal Strength Bars ==================== */
-
-.signal-bars {
-    display: inline-flex;
-    align-items: flex-end;
-    gap: 2px;
-    height: 16px;
-}
-
-.signal-bar {
-    width: 4px;
-    background-color: #dbdbdb;
-    border-radius: 1px;
-}
-
-.signal-bar.active {
-    background-color: #48c774;
-}
-
-.signal-bars .signal-bar:nth-child(1) { height: 4px; }
-.signal-bars .signal-bar:nth-child(2) { height: 8px; }
-.signal-bars .signal-bar:nth-child(3) { height: 12px; }
-.signal-bars .signal-bar:nth-child(4) { height: 16px; }
-
-/* ==================== Commit List (System Updates) ==================== */
-
+/* Update list */
 .commit-list {
-    max-height: 200px;
-    overflow-y: auto;
-    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', monospace;
-    font-size: 0.85em;
-    background: #f5f5f5;
-    padding: 1em;
-    border-radius: 4px;
-    border-left: 3px solid #3273dc;
+    max-height: 200px; overflow-y: auto; font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    background: var(--bg); border: 1px solid var(--line); border-left: 3px solid var(--accent3); padding: 12px; border-radius: 6px;
 }
+.commit-list p { margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.commit-list p:last-child { margin: 0; padding: 0; border: 0; }
 
-.commit-list p {
-    margin-bottom: 0.5em;
-    padding-bottom: 0.5em;
-    border-bottom: 1px solid #e0e0e0;
+/* Settings page tabs (Bulma-style markup: div.tabs > ul > li[data-tab]) */
+div.tabs ul { list-style: none; display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+div.tabs li {
+    font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--muted); border: 2px solid var(--line); border-radius: 8px; padding: 7px 14px; cursor: pointer;
 }
+div.tabs li a { color: inherit; text-decoration: none; }
+div.tabs li.is-active { color: var(--accent); border-color: var(--accent); box-shadow: 3px 3px 0 var(--accent); }
+.textarea { width: 100%; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.5; }
 
-.commit-list p:last-child {
-    margin-bottom: 0;
-    padding-bottom: 0;
-    border-bottom: none;
-}
+/* Modals (used by the Updates page) */
+.modal { display: none; position: fixed; inset: 0; z-index: 50; align-items: center; justify-content: center; }
+.modal.is-active { display: flex; }
+.modal-background { position: absolute; inset: 0; background: rgba(0, 0, 0, .7); }
+.modal-card { position: relative; background: var(--panel); border: 2px solid var(--line); border-radius: var(--radius);
+              box-shadow: 6px 6px 0 var(--accent); width: min(520px, 92vw); }
+.modal-card-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.modal-card-title { font-weight: 700; }
+.modal-card-body { padding: 18px; }
+.modal-card-foot { display: flex; gap: 10px; padding: 14px 18px; border-top: 1px solid var(--line); }
+.modal .delete, .notification .delete { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 18px; }
+.modal .delete::before, .notification .delete::before { content: "\00d7"; }
 
-/* ==================== Tabs ==================== */
-
-.tabs li.is-active a {
-    border-bottom-color: #3273dc;
-    color: #3273dc;
-}
-
-.tab-content {
-    animation: fadeIn 0.2s ease;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-/* ==================== Textareas ==================== */
-
-.textarea {
-    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', 'Droid Sans Mono', monospace;
-    font-size: 0.9em;
-    line-height: 1.5;
-}
-
-/* ==================== Notifications ==================== */
-
-.notification {
-    position: relative;
-}
-
-#flash-messages .notification {
-    animation: slideIn 0.3s ease;
-}
-
-@keyframes slideIn {
-    from {
-        transform: translateY(-20px);
-        opacity: 0;
-    }
-    to {
-        transform: translateY(0);
-        opacity: 1;
-    }
-}
-
-/* ==================== Loading States ==================== */
-
-.spinner {
-    display: inline-block;
-    width: 1em;
-    height: 1em;
-    border: 2px solid #f3f3f3;
-    border-top: 2px solid #3273dc;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin-right: 0.5em;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-/* ==================== Mobile Responsive ==================== */
-
-@media screen and (max-width: 768px) {
-    .feature-card {
-        margin-bottom: 1rem;
-    }
-    
-    .table-container {
-        overflow-x: auto;
-    }
-    
-    .welcome-box .columns {
-        text-align: center;
-    }
-    
-    .welcome-box .column.is-narrow {
-        margin-bottom: 1rem;
-    }
-}
-
-/* ==================== Helpers ==================== */
-
-.is-clickable {
-    cursor: pointer;
-}
-
-.is-clickable:hover {
-    background-color: rgba(0, 0, 0, 0.02);
-}
-
-/* Fix for Bulma buttons in dark navbar */
-.navbar.is-dark .button.is-light {
-    background-color: rgba(255, 255, 255, 0.9);
-}
-
-.navbar.is-dark .button.is-light:hover {
-    background-color: white;
-}
+.spinner { display: inline-block; width: 1em; height: 1em; border: 2px solid var(--line); border-top-color: var(--accent);
+           border-radius: 50%; animation: spin 1s linear infinite; margin-right: .5em; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.is-clickable { cursor: pointer; }

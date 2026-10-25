@@ -37,13 +37,18 @@ class WiFiManager:
         """Get current WiFi connection details."""
         try:
             # Get current SSID
+            # iwgetid (wireless-tools) is not installed on the Pi; ask NetworkManager (no rescan) instead
             result = subprocess.run(
-                ["iwgetid", "-r"],
+                ["nmcli", "-t", "-f", "ACTIVE,SSID", "device", "wifi", "list", "--rescan", "no"],
                 capture_output=True,
                 text=True,
                 timeout=self.CMD_TIMEOUT_SHORT
             )
-            ssid = result.stdout.strip() if result.returncode == 0 else None
+            ssid = None
+            for line in result.stdout.splitlines():
+                if line.startswith("yes:"):
+                    ssid = line[4:].replace("\\:", ":") or None
+                    break
             
             # Get IP address
             ip_result = subprocess.run(
