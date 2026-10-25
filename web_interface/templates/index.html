@@ -67,6 +67,13 @@
     </div>
 </div>
 
+{% if poem_stats.recent_fallbacks %}
+<div class="notification is-warning is-light">
+    <strong>The last {{ poem_stats.recent_fallbacks }} poems were generic backup poems.</strong>
+    The camera can't reach the AI service. Check the network (see Network above) and the Event health table below.
+</div>
+{% endif %}
+
 <!-- Poem Stats -->
 <div class="box mb-5">
     <h2 class="title is-5">

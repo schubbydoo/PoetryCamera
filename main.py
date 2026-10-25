@@ -17,7 +17,7 @@ import random
 # Import configuration manager
 from web_interface.config_manager import config_manager
 from web_interface.poem_stats import record_poem, record_event
-from web_interface.health_monitor import start_health_monitor
+from web_interface.health_monitor import start_health_monitor, internet_ok
 
 # Setup logging
 # force=True: config_manager (imported above) already set up logging with a bare format
@@ -125,11 +125,15 @@ def safe_led_blink(on_time=1, off_time=1):
         pass
 
 paper_out = False
+fallback_streak = 0   # consecutive poems that fell back to a canned poem
+degraded = False      # True after 2+ canned poems in a row (AI unreachable)
 
 def rest_led():
-    """Idle LED state: steady on, or a slow pulse while the printer is out of paper."""
+    """Idle LED: steady on; slow pulse = out of paper; steady 0.6 s blink = AI unreachable (canned poems)."""
     if paper_out:
         safe_led_blink(on_time=0.1, off_time=1.5)
+    elif degraded:
+        safe_led_blink(on_time=0.6, off_time=0.6)
     else:
         safe_led_on()
 
@@ -190,7 +194,7 @@ def paper_watcher():
 # CORE PHOTO-TO-POEM FUNCTION
 #############################
 def take_photo_and_print_poem():
-    global camera_at_rest
+    global camera_at_rest, fallback_streak, degraded
     camera_at_rest = False
     
     # blink LED to show activity
@@ -270,11 +274,15 @@ def take_photo_and_print_poem():
         print(f"Sending image to AI ({provider}/{model})...")
 
         poem = generate_poem_with_fallback(provider, model, final_user_prompt, base64_image)
+        fallback_streak = 0
+        degraded = False
         print_poem(poem)
 
     except Exception as e:
         # Never show guests an error; print a canned poem and log the real cause
         logging.exception("Poem generation failed")
+        fallback_streak += 1
+        degraded = fallback_streak >= 2
         record_poem(locals().get('provider'), locals().get('model'), None, fallback=True)
         print_poem(random.choice(FALLBACK_POEMS))
         rest_led()
@@ -457,13 +465,25 @@ def on_release():
     
     duration = release_time - press_time
 
-    if duration > 0.05 and duration < 2:
-        if camera_at_rest:
-            threading.Thread(target=take_photo_and_print_poem).start()
-        else:
-            print("Busy: ignoring click")
-    elif duration > 9:
+    if duration <= 0.05:
+        logging.info(f"Shutter press {duration:.2f}s ignored (too short, likely contact bounce)")
+        return
+
+    # Any normal press, and even a long hold, takes a photo; only a deliberate
+    # 10 s hold while OFFLINE enters setup hotspot mode (it used to drop the
+    # camera off wifi whenever someone held the button, even with internet up).
+    if duration > 9 and not internet_ok():
+        logging.warning(f"Shutter held {duration:.1f}s with no internet - entering setup hotspot mode")
+        record_event("hotspot_by_button")
         run_ap_activate()
+        return
+
+    if camera_at_rest:
+        logging.info(f"Shutter press {duration:.1f}s - taking photo")
+        threading.Thread(target=take_photo_and_print_poem).start()
+    else:
+        logging.info(f"Shutter press {duration:.1f}s ignored - busy with a previous photo")
+        print("Busy: ignoring click")
 
 def shutdown():
     print("Shutting down...")

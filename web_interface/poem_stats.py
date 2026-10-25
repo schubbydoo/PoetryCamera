@@ -62,8 +62,16 @@ def get_summary(now=None):
         "today": sum(1 for e in entries if e["dt"].date() == now.date()),
         "last_24h": sum(1 for e in entries if now - e["dt"] <= timedelta(hours=24)),
         "fallbacks": sum(1 for e in entries if e["fallback"]),
+        "recent_fallbacks": 0,
         "event": None,
     }
+    # Canned poems in a row at the end, within the last 6 hours = AI is currently unreachable
+    streak = 0
+    for e in reversed(entries):
+        if not e["fallback"] or now - e["dt"] > timedelta(hours=6):
+            break
+        streak += 1
+    summary["recent_fallbacks"] = streak if streak >= 2 else 0
     if entries:
         # Split into events: runs of poems with no gap longer than SESSION_GAP
         events = [[entries[0]]]
@@ -194,6 +202,11 @@ def get_health(lo, hi):
     rows.append(("Restarts", len(restarts),
                  (f"{len(unclean)} unclean (likely power loss); about {_fmt_duration(down)} down" if restarts else ""),
                  len(unclean) == 0))
+
+    heals = kinds("self_heal")
+    rows.append(("Self-recoveries", len(heals),
+                 (", ".join(f"{(e.get('detail') or {}).get('reason')} -> {(e.get('detail') or {}).get('network')}" for e in heals)
+                  if heals else ""), not heals))
 
     retries, failed = len(kinds("api_retry")), len(kinds("ai_failed"))
     rows.append(("AI hiccups", retries + failed,
