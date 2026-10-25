@@ -42,7 +42,7 @@ def login_required(f):
     return decorated_function
 
 
-ACTIVE_TAB = {'home': 'dashboard', 'settings': 'settings', 'updates': 'updates', 'account': 'account'}
+ACTIVE_TAB = {'home': 'dashboard', 'settings': 'settings', 'account': 'account'}
 
 
 @app.context_processor
@@ -133,13 +133,6 @@ def home():
     )
 
 
-@app.route('/updates')
-@login_required
-def updates():
-    """Software updates page."""
-    return render_template('updates.html', system_info=system_manager.get_system_info())
-
-
 @app.route('/settings')
 @login_required
 def settings():
@@ -187,26 +180,6 @@ def api_status():
         "system": system_info,
         "printer": printer_status
     })
-
-
-# ==================== API Routes - System ====================
-
-@app.route('/api/check_updates')
-@login_required
-def api_check_updates():
-    """Check for available updates."""
-    result = system_manager.check_for_updates()
-    status_code = 200 if result.get("success") else 500
-    return jsonify(result), status_code
-
-
-@app.route('/api/apply_updates', methods=['POST'])
-@login_required
-def api_apply_updates():
-    """Apply available updates."""
-    result = system_manager.apply_updates()
-    status_code = 200 if result.get("success") else 500
-    return jsonify(result), status_code
 
 
 # ==================== API Routes - Settings ====================
@@ -378,11 +351,12 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__
 PROP_CONFIG = propkit.PropConfig(
     name="Poetry Camera", brand=("POETRY", "CAMERA"),
     tabs=[("dashboard", "/", "Dashboard"), ("settings", "/settings", "Settings"),
-          ("updates", "/updates", "Updates"), ("account", "/settings/account", "Account"),
+          ("account", "/settings/account", "Account"),
           ("system", "/system", "System"), ("logout", "/logout", "Logout")],
     service_name="poetrycamera.service", base_dir=BASE_DIR,
     state_dir=os.path.abspath(NETGUARD_STATE_DIR),
     hotspot_profile="PoetCam", auth=login_required,
+    allow_repo_change=True,   # every propkit route is behind login_required (cfg.auth)
     extra_health=_printer_rows, extra_software=_software_rows,
 )
 propkit_flask.install(app, PROP_CONFIG)
