@@ -7,11 +7,10 @@ Flask application providing web-based configuration and management.
 import os
 import sys
 import requests
-from functools import wraps
 from datetime import datetime
 from flask import (
     Flask, render_template, request, redirect, url_for, 
-    flash, jsonify, session
+    flash, jsonify
 )
 
 from .wifi_manager import wifi_manager
@@ -32,17 +31,7 @@ app.secret_key = config_manager.get_secret_key()
 
 # ==================== Authentication ====================
 
-def login_required(f):
-    """Decorator to require login for routes."""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not session.get('logged_in'):
-            return redirect(url_for('login', next=request.url))
-        return f(*args, **kwargs)
-    return decorated_function
-
-
-ACTIVE_TAB = {'home': 'dashboard', 'settings': 'settings', 'account': 'account'}
+ACTIVE_TAB = {'home': 'dashboard', 'settings': 'settings'}
 
 
 @app.context_processor
@@ -53,47 +42,12 @@ def inject_globals():
         'current_year': datetime.now().year,
         'is_in_ap_mode': wifi_manager.is_ap_mode(),
         'active_page': ACTIVE_TAB.get(request.endpoint),
-        'current_user': {'is_authenticated': session.get('logged_in', False)}
     }
 
 
 # ==================== Page Routes ====================
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    """Login page."""
-    if session.get('logged_in'):
-        return redirect(url_for('home'))
-    
-    if request.method == 'POST':
-        username = request.form.get('username', '')
-        password = request.form.get('password', '')
-        
-        if config_manager.verify_credentials(username, password):
-            session['logged_in'] = True
-            session['username'] = username
-            flash('Welcome to Poetry Camera!', 'success')
-            
-            next_url = request.args.get('next')
-            if next_url:
-                return redirect(next_url)
-            return redirect(url_for('home'))
-        else:
-            flash('Invalid username or password', 'danger')
-    
-    return render_template('login.html')
-
-
-@app.route('/logout')
-def logout():
-    """Logout and redirect to login."""
-    session.clear()
-    flash('You have been logged out.', 'info')
-    return redirect(url_for('login'))
-
-
 @app.route('/')
-@login_required
 def home():
     """Dashboard/home page."""
     # Get device status
@@ -134,7 +88,6 @@ def home():
 
 
 @app.route('/settings')
-@login_required
 def settings():
     """Settings page for prompts and printer configuration."""
     openai_config = config_manager.get_openai_config()
@@ -147,19 +100,9 @@ def settings():
     )
 
 
-@app.route('/settings/account')
-@login_required
-def account():
-    """Account settings page."""
-    return render_template('account.html',
-        username=config_manager.get_username()
-    )
-
-
 # ==================== API Routes - Status ====================
 
 @app.route('/api/status')
-@login_required
 def api_status():
     """Get overall device status."""
     wifi_status = wifi_manager.get_current_connection()
@@ -185,7 +128,6 @@ def api_status():
 # ==================== API Routes - Settings ====================
 
 @app.route('/api/settings/openai', methods=['GET', 'POST'])
-@login_required
 def api_settings_openai():
     """Get or update OpenAI settings."""
     if request.method == 'GET':
@@ -206,7 +148,6 @@ def api_settings_openai():
 
 
 @app.route('/api/settings/printer', methods=['GET', 'POST'])
-@login_required
 def api_settings_printer():
     """Get or update printer settings."""
     if request.method == 'GET':
@@ -227,7 +168,6 @@ def api_settings_printer():
 
 
 @app.route('/api/settings/reset', methods=['POST'])
-@login_required
 def api_settings_reset():
     """Reset settings to defaults."""
     data = request.get_json() or {}
@@ -238,32 +178,9 @@ def api_settings_reset():
     return jsonify(result), status_code
 
 
-@app.route('/api/settings/password', methods=['POST'])
-@login_required
-def api_change_password():
-    """Change user password."""
-    data = request.get_json()
-    if not data:
-        return jsonify({"success": False, "error": "No data provided"}), 400
-    
-    current_password = data.get('current_password')
-    new_password = data.get('new_password')
-    
-    if not current_password or not new_password:
-        return jsonify({"success": False, "error": "Both current and new password are required"}), 400
-    
-    if len(new_password) < 4:
-        return jsonify({"success": False, "error": "Password must be at least 4 characters"}), 400
-    
-    result = config_manager.change_password(current_password, new_password)
-    status_code = 200 if result.get("success") else 400
-    return jsonify(result), status_code
-
-
 # ==================== API Routes - Demo Context ====================
 
 @app.route('/api/settings/demo_context', methods=['GET', 'POST'])
-@login_required
 def api_demo_context():
     """Get or update demo context."""
     if request.method == 'GET':
@@ -281,7 +198,6 @@ def api_demo_context():
 
 
 @app.route('/api/settings/demo_context/clear', methods=['POST'])
-@login_required
 def api_clear_demo_context():
     """Clear demo context."""
     config_manager.clear_demo_context()
@@ -291,7 +207,6 @@ def api_clear_demo_context():
 # ==================== API Routes - Printer Test ====================
 
 @app.route('/api/printer/test', methods=['POST'])
-@login_required
 def api_printer_test():
     """Send a test print to the printer."""
     try:
@@ -351,12 +266,12 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__
 PROP_CONFIG = propkit.PropConfig(
     name="Poetry Camera", brand=("POETRY", "CAMERA"),
     tabs=[("dashboard", "/", "Dashboard"), ("settings", "/settings", "Settings"),
-          ("account", "/settings/account", "Account"),
-          ("system", "/system", "System"), ("logout", "/logout", "Logout")],
+          ("system", "/system", "System")],
     service_name="poetrycamera.service", base_dir=BASE_DIR,
     state_dir=os.path.abspath(NETGUARD_STATE_DIR),
-    hotspot_profile="PoetCam", auth=login_required,
-    allow_repo_change=True,   # every propkit route is behind login_required (cfg.auth)
+    hotspot_profile="PoetCam",
+    login=True, login_username=config_manager.get_username(),   # shared login for the whole app (set at /setup)
+    allow_repo_change=True,   # the shared login guards every page once a password is set
     extra_health=_printer_rows, extra_software=_software_rows,
 )
 propkit_flask.install(app, PROP_CONFIG)
