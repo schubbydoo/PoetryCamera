@@ -364,20 +364,20 @@ class CatPrinter:
                 padded_image = PIL.Image.new("1", (self.PrinterWidth, image.height), 1)
                 padded_image.paste(image)
                 image = padded_image
-                image = image.rotate(180)
-                for y in range(0, image.height):
-                    bmp = []
-                    bit = 0
-                    for x in range(0, image.width):
-                        if bit % 8 == 0:
-                            bmp += [0x00]
-                        bmp[int(bit / 8)] >>= 1
-                        if not image.getpixel((x, y)):
-                            bmp[int(bit / 8)] |= 0x80
-                        else:
-                            bmp[int(bit / 8)] |= 0
-                        bit += 1
-                    cmdqueue += self.formatMessage(self.DrawBitmap, bmp)
+            image = image.rotate(180)
+            for y in range(0, image.height):
+                bmp = []
+                bit = 0
+                for x in range(0, image.width):
+                    if bit % 8 == 0:
+                        bmp += [0x00]
+                    bmp[int(bit / 8)] >>= 1
+                    if not image.getpixel((x, y)):
+                        bmp[int(bit / 8)] |= 0x80
+                    else:
+                        bmp[int(bit / 8)] |= 0
+                    bit += 1
+                cmdqueue += self.formatMessage(self.DrawBitmap, bmp)
         cmdqueue += self.formatMessage(self.OtherFeedPaper, self.BlankSpeed)
         if feed_amount > 0:
             cmdqueue += self.formatMessage(self.FeedPaper, [feed_amount.to_bytes(2, 'little')[0], feed_amount.to_bytes(2, 'little')[1]])
