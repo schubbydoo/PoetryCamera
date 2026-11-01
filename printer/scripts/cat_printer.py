@@ -281,9 +281,11 @@ class CatPrinter:
                             if text:
                                 text, lucky = self.split_lucky(text)
                                 self.image_queue.append(self.drawTestPattern(None, -80))
-                                self.image_queue.append(self.drawTestPattern(self.create_text(text), 0, 17000))
+                                # Each image comes out of the printer upside-down-first, so whatever is sent
+                                # first ends up lowest on the strip: the lucky-number block goes before the poem.
                                 if lucky:
                                     self.image_queue.append(self.drawTestPattern(self.create_lucky_block(lucky), 0, 17000))
+                                self.image_queue.append(self.drawTestPattern(self.create_text(text), 0, 17000))
                                 self.image_queue.append(self.drawTestPattern(None, 100))
 
                         if self.image_queue:
@@ -423,7 +425,7 @@ class CatPrinter:
         parts = [block("Tell Zoltar your lucky number to hear your poem.", 30, 0),
                  block("Your lucky number is", 40, 1),
                  block(str(number), 130, 3)]
-        height = 30 + sum(p.height + 14 for p in parts if p)
+        height = 30 + 24 + sum(p.height + 14 for p in parts if p)
         out = PIL.Image.new('RGB', (self.PrinterWidth, height), color=(255, 255, 255))
         y = 30
         for p in parts:
