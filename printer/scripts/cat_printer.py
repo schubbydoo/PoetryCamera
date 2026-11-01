@@ -422,7 +422,7 @@ class CatPrinter:
             d.text((0, 0), "\n".join(self.get_wrapped_text(l, font, self.PrinterWidth - 2 * stroke) for l in text.splitlines()),
                    fill=(0, 0, 0), font=font, stroke_width=stroke, stroke_fill=(0, 0, 0))
             return self.trim(img)
-        parts = [block("Tell Zoltar your lucky number to hear your poem.", 30, 0),
+        parts = [block("Tell Zoltar your lucky number to hear your poem.", 40, 1),
                  block("Your lucky number is", 40, 1),
                  block(str(number), 130, 3)]
         height = 30 + 24 + sum(p.height + 14 for p in parts if p)
