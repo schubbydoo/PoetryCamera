@@ -117,3 +117,5 @@ poem_log.jsonl
 event_log.jsonl
 health_state.json
 netguard_state/
+zoltar_poems.json
+zoltar_poem_state.json

@@ -33,6 +33,12 @@
                 <span>Prompts</span>
             </a>
         </li>
+        <li data-tab="zoltar-tab">
+            <a>
+                <span class="icon"><i class="fas fa-star"></i></span>
+                <span>Zoltar</span>
+            </a>
+        </li>
     </ul>
 </div>
 
@@ -117,6 +123,32 @@
             <button class="button is-primary" id="btn-save-printer">
                 <span class="icon"><i class="fas fa-save"></i></span>
                 <span>Save Printer Settings</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Zoltar Tab -->
+<div id="zoltar-tab" class="tab-content" style="display: none;">
+    <div class="box">
+        <h2 class="title is-5">Lucky number &amp; Zoltar</h2>
+        <p class="mb-4">When on, each poem is sent to Zoltar and the strip prints a lucky number guests can tell Zoltar to hear their poem. If Zoltar cannot be reached the strip prints as usual, without a number.</p>
+        <div class="field">
+            <label class="checkbox"><input type="checkbox" id="zoltar-enabled"> Turn on lucky numbers</label>
+        </div>
+        <div class="field">
+            <label class="label">Zoltar address</label>
+            <input class="input" type="text" id="zoltar-address" placeholder="http://192.168.128.146:8000">
+        </div>
+        <div class="field">
+            <label class="label">Shared token</label>
+            <input class="input" type="password" id="zoltar-token" autocomplete="off" placeholder="">
+            <p class="help" id="zoltar-token-help"></p>
+        </div>
+        <div class="field mt-4">
+            <button class="button is-primary" id="btn-save-zoltar">
+                <span class="icon"><i class="fas fa-save"></i></span>
+                <span>Save Zoltar Settings</span>
             </button>
         </div>
     </div>

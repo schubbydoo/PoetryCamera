@@ -167,6 +167,21 @@ def api_settings_printer():
     return jsonify(result), status_code
 
 
+@app.route('/api/settings/zoltar', methods=['GET', 'POST'])
+def api_settings_zoltar():
+    """Lucky-number feature: switch, Zoltar's address and shared token (the token is never sent back)."""
+    import zoltar_poems
+    if request.method == 'POST':
+        data = request.get_json() or {}
+        try:
+            zoltar_poems.save_settings(data)
+        except Exception as e:
+            return jsonify({"success": False, "error": str(e)}), 400
+    s = zoltar_poems.get_settings()
+    return jsonify({"success": True, "config": {"enabled": s["enabled"], "address": s["address"],
+                                                 "token_set": bool(s["token"])}})
+
+
 @app.route('/api/settings/reset', methods=['POST'])
 def api_settings_reset():
     """Reset settings to defaults."""

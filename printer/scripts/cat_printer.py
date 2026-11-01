@@ -279,8 +279,11 @@ class CatPrinter:
                             self.last_text = text
                             self.last_text_time = time.time()
                             if text:
+                                text, lucky = self.split_lucky(text)
                                 self.image_queue.append(self.drawTestPattern(None, -80))
                                 self.image_queue.append(self.drawTestPattern(self.create_text(text), 0, 17000))
+                                if lucky:
+                                    self.image_queue.append(self.drawTestPattern(self.create_lucky_block(lucky), 0, 17000))
                                 self.image_queue.append(self.drawTestPattern(None, 100))
 
                         if self.image_queue:
@@ -397,6 +400,37 @@ class CatPrinter:
         lines = "\n".join(lines)
         d.text((0, 0), lines, fill=(0, 0, 0), font=font)
         return self.trim(img)
+
+    def split_lucky(self, text):
+        # A trailing "\x1fLUCKY:NN" marker (added by main.py) asks for the lucky-number block.
+        if "\x1fLUCKY:" in text:
+            text, _, num = text.partition("\x1fLUCKY:")
+            num = num.strip()
+            if num.isdigit():
+                return text.rstrip(), num
+            return text.rstrip(), None
+        return text, None
+
+    def create_lucky_block(self, number, font_name="/home/shschubert/PoetryCamera/fonts/MarckScript-Regular.ttf"):
+        # Small instruction line, then the number large and bold, with a gap above.
+        def block(text, size, stroke):
+            font = PIL.ImageFont.truetype(font_name, size)
+            img = PIL.Image.new('RGB', (self.PrinterWidth, 600), color=(255, 255, 255))
+            d = PIL.ImageDraw.Draw(img)
+            d.text((0, 0), "\n".join(self.get_wrapped_text(l, font, self.PrinterWidth - 2 * stroke) for l in text.splitlines()),
+                   fill=(0, 0, 0), font=font, stroke_width=stroke, stroke_fill=(0, 0, 0))
+            return self.trim(img)
+        parts = [block("Tell Zoltar your lucky number to hear your poem.", 30, 0),
+                 block("Your lucky number is", 40, 1),
+                 block(str(number), 130, 3)]
+        height = 30 + sum(p.height + 14 for p in parts if p)
+        out = PIL.Image.new('RGB', (self.PrinterWidth, height), color=(255, 255, 255))
+        y = 30
+        for p in parts:
+            if p:
+                out.paste(p, (max((self.PrinterWidth - p.width) // 2, 0), y))
+                y += p.height + 14
+        return out
 
     def get_wrapped_text(self, text: str, font: PIL.ImageFont.ImageFont, line_length: int):
         # Wrap text to fit within the specified line length, considering the font size.

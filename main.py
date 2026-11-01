@@ -17,6 +17,7 @@ import random
 # Import configuration manager
 from web_interface.config_manager import config_manager
 from web_interface.poem_stats import record_poem, record_event
+import zoltar_poems
 from web_interface.health_monitor import start_health_monitor, internet_ok
 
 # Setup logging
@@ -417,6 +418,10 @@ def print_poem(poem):
         current_date = datetime.now().strftime("%B %d, %Y")
         footer_text = f"\n\nWritten by The Poeteer, {current_date}"
         full_text = poem + footer_text
+        # Lucky number: only added if Zoltar accepted the poem (bounded by a 3 s timeout, never raises)
+        number = zoltar_poems.register(poem)
+        if number:
+            full_text += f"\n\x1fLUCKY:{number}"
 
         print('--------POEM BELOW-------')
         print(full_text)

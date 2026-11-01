@@ -39,6 +39,8 @@ const POEM_FORMAT_DESCRIPTIONS = {
 document.addEventListener('DOMContentLoaded', () => {
     // Set up event listeners
     document.getElementById('btn-save-printer').addEventListener('click', savePrinterSettings);
+    document.getElementById('btn-save-zoltar').addEventListener('click', saveZoltarSettings);
+    loadZoltarSettings();
     document.getElementById('btn-save-openai').addEventListener('click', saveOpenAISettings);
     document.getElementById('btn-save-prompts').addEventListener('click', savePrompts);
     document.getElementById('btn-reset-prompts').addEventListener('click', () => openModal('reset-modal'));
@@ -275,6 +277,46 @@ async function resetPrompts() {
         }
     } catch (error) {
         showNotification('Error resetting prompts: ' + error.message, 'danger');
+    } finally {
+        setButtonLoading(btn, false);
+    }
+}
+
+
+// ==================== Zoltar (lucky numbers) ====================
+
+function showZoltar(config) {
+    document.getElementById('zoltar-enabled').checked = !!config.enabled;
+    document.getElementById('zoltar-address').value = config.address || '';
+    document.getElementById('zoltar-token').value = '';
+    document.getElementById('zoltar-token-help').textContent =
+        config.token_set ? 'A token is saved. Leave blank to keep it.' : 'No token saved yet.';
+}
+
+async function loadZoltarSettings() {
+    try {
+        const result = await apiCall('/api/settings/zoltar', 'GET');
+        if (result.success) showZoltar(result.config);
+    } catch (error) { /* tab stays empty */ }
+}
+
+async function saveZoltarSettings() {
+    const btn = document.getElementById('btn-save-zoltar');
+    setButtonLoading(btn, true);
+    try {
+        const result = await apiCall('/api/settings/zoltar', 'POST', {
+            enabled: document.getElementById('zoltar-enabled').checked,
+            address: document.getElementById('zoltar-address').value,
+            token: document.getElementById('zoltar-token').value
+        });
+        if (result.success) {
+            showZoltar(result.config);
+            showNotification('Zoltar settings saved!', 'success');
+        } else {
+            showNotification(result.error || 'Failed to save settings', 'danger');
+        }
+    } catch (error) {
+        showNotification('Error saving settings: ' + error.message, 'danger');
     } finally {
         setButtonLoading(btn, false);
     }
