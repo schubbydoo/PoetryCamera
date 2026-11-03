@@ -9,6 +9,7 @@ from datetime import datetime
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
+sys.path.insert(0, os.path.expanduser("~/propkit"))   # as the app does, so tests also prove the app needs no PYTHONPATH
 _TMP = tempfile.mkdtemp()
 os.environ["POETRYCAMERA_EVENTS_DIR"] = os.path.join(_TMP, "events")   # before the app is imported
 
@@ -63,6 +64,20 @@ class StatsTests(unittest.TestCase):
         ev = read_events(poem_stats.EVENTS_DIR)
         self.assertEqual([e["outcome"] for e in ev], ["ok", "fallback"])
         self.assertEqual(open(self.log).read(), before)        # the old log is untouched
+
+    def test_canned_streak_and_banner(self):
+        from web_interface.app import _banner
+        self.assertEqual(poem_stats.canned_streak(), 0)
+        self.assertIsNone(_banner())
+        poem_stats.record_poem("a", "m", 4.0)
+        poem_stats.record_poem(None, None, None, fallback=True)
+        self.assertIsNone(_banner())                       # one canned poem is not yet a warning
+        poem_stats.record_poem(None, None, None, fallback=True)
+        b = _banner()
+        self.assertEqual((b["tone"], poem_stats.canned_streak()), ("warn", 2))
+        self.assertIn("2 poems", b["text"])
+        poem_stats.record_poem("a", "m", 4.0)              # a good poem clears it
+        self.assertIsNone(_banner())
 
     def test_page_and_api_reflect_a_poem(self):
         from web_interface.app import app

@@ -55,31 +55,44 @@ def record_poem(provider, model, seconds, fallback=False, when=None):
 
 
 def backfill_events():
-    """Copy poems from poem_log.jsonl into the activity events. Safe to run any number of times
+    """Copy poems from poem_log.jsonl into the activity events, in one write. Safe to run any number of times
     (a poem whose time is already recorded is skipped). Returns how many were added. Never raises."""
-    added = 0
     try:
         from propkit.stats import read_events
         have = {e["ts"] for e in read_events(EVENTS_DIR, kinds=["poem"])}
+        items = []
         with open(LOG_PATH) as f:
-            lines = f.read().splitlines()
-        for line in lines:
-            try:
-                e = json.loads(line)
-                when = datetime.fromisoformat(e["time"])
-            except Exception:
-                continue
-            if e["time"] in have:
-                continue
-            fb = bool(e.get("fallback"))
-            prov, mdl = e.get("provider"), e.get("model")
-            if _rec().record("poem", "fallback" if fb else "ok", seconds=e.get("seconds"),
-                             detail=f"{prov}/{mdl}" if prov and mdl else None, when=when):
+            for line in f.read().splitlines():
+                try:
+                    e = json.loads(line)
+                    when = datetime.fromisoformat(e["time"])
+                except Exception:
+                    continue
+                if e["time"] in have:
+                    continue
                 have.add(e["time"])
-                added += 1
+                prov, mdl = e.get("provider"), e.get("model")
+                items.append({"kind": "poem", "outcome": "fallback" if e.get("fallback") else "ok",
+                              "seconds": e.get("seconds"), "detail": f"{prov}/{mdl}" if prov and mdl else None, "when": when})
+        return _rec().record_many(items) if items else 0
     except Exception:
-        pass
-    return added
+        return 0
+
+
+def canned_streak(now=None, within_hours=6):
+    """How many of the most recent poems in a row were canned (AI failed), counting only the last few hours.
+    Used for the page-wide warning; never raises."""
+    try:
+        from propkit.stats import read_events
+        now = (now or datetime.now()).timestamp()
+        streak = 0
+        for e in reversed(read_events(EVENTS_DIR, kinds=["poem"], limit=20)):
+            if e["outcome"] != "fallback" or now - e["_t"] > within_hours * 3600:
+                break
+            streak += 1
+        return streak
+    except Exception:
+        return 0
 
 
 def record_event(kind, detail=None, when=None):

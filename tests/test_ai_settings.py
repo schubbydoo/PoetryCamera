@@ -9,6 +9,7 @@ from pathlib import Path
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
+sys.path.insert(0, os.path.expanduser("~/propkit"))
 
 from web_interface import ai_settings, config_manager as cm_mod  # noqa: E402
 from web_interface.config_manager import config_manager  # noqa: E402

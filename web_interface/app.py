@@ -16,7 +16,7 @@ from flask import (
 from .wifi_manager import wifi_manager
 from .system_manager import system_manager
 from .config_manager import config_manager
-from .poem_stats import backfill_events, EVENTS_DIR
+from .poem_stats import backfill_events, canned_streak, EVENTS_DIR
 from .health_monitor import NETGUARD_STATE_DIR
 
 # Shared UI kit (https://github.com/schubbydoo/propkit), cloned to ~/propkit on the Pi
@@ -166,6 +166,15 @@ def _printer_rows():
         return [{"k": "Printer", "v": "Printer service not responding", "color": "bad"}]
 
 
+def _banner():
+    """Page-wide warning when the last poems were canned backups (the AI could not be reached)."""
+    n = canned_streak()
+    if n >= 2:
+        return {"tone": "warn", "href": "/ai",
+                "text": f"The last {n} poems were generic backup poems: the camera can't reach the AI service. Check the network and the AI keys."}
+    return None
+
+
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 PROP_CONFIG = propkit.PropConfig(
     name="Poetry Camera", brand=("POETRY", "CAMERA"),
@@ -176,7 +185,7 @@ PROP_CONFIG = propkit.PropConfig(
     hotspot_profile="PoetCam",
     login=True, login_username=config_manager.get_username(),   # shared login for the whole app (set at /setup)
     allow_repo_change=True,   # the shared login guards every page once a password is set
-    extra_health=_printer_rows,
+    extra_health=_printer_rows, banner=_banner,
     stats=StatsSpec(noun="poem", outcomes={"ok": ("Written", "good"), "fallback": ("Canned poem (AI failed)", "warn")}, show_text=False),
     events_dir=EVENTS_DIR, dashboard_path="/",
     ai=ai_settings.build(),   # the shared AI tab (keys, model, prompt, demo context, test)
