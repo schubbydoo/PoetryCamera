@@ -23,6 +23,7 @@ from .health_monitor import NETGUARD_STATE_DIR
 sys.path.insert(0, os.path.expanduser("~/propkit"))
 import propkit
 from propkit import flask_app as propkit_flask
+from . import ai_health, ai_settings
 
 # Create Flask app
 app = Flask(__name__)
@@ -89,15 +90,9 @@ def home():
 
 @app.route('/settings')
 def settings():
-    """Settings page for prompts and printer configuration."""
-    openai_config = config_manager.get_openai_config()
+    """Settings page for the printer and Zoltar (the AI settings live on propkit's AI tab)."""
     printer_config = config_manager.get_printer_config()
-    demo_context = config_manager.get_demo_context()
-    return render_template('settings.html',
-        openai_config=openai_config,
-        printer_config=printer_config,
-        demo_context=demo_context
-    )
+    return render_template('settings.html', printer_config=printer_config)
 
 
 # ==================== API Routes - Status ====================
@@ -126,26 +121,6 @@ def api_status():
 
 
 # ==================== API Routes - Settings ====================
-
-@app.route('/api/settings/openai', methods=['GET', 'POST'])
-def api_settings_openai():
-    """Get or update OpenAI settings."""
-    if request.method == 'GET':
-        config = config_manager.get_openai_config()
-        return jsonify({
-            "success": True,
-            "config": config
-        })
-    
-    # POST - update settings
-    data = request.get_json()
-    if not data:
-        return jsonify({"success": False, "error": "No data provided"}), 400
-    
-    result = config_manager.update_openai_config(data)
-    status_code = 200 if result.get("success") else 400
-    return jsonify(result), status_code
-
 
 @app.route('/api/settings/printer', methods=['GET', 'POST'])
 def api_settings_printer():
@@ -181,45 +156,6 @@ def api_settings_zoltar():
     return jsonify({"success": True, "config": {"enabled": s["enabled"], "address": s["address"],
                                                  "token_set": bool(s["token"])}})
 
-
-@app.route('/api/settings/reset', methods=['POST'])
-def api_settings_reset():
-    """Reset settings to defaults."""
-    data = request.get_json() or {}
-    section = data.get('section')  # Optional: 'openai', 'printer', or None for all
-    
-    result = config_manager.reset_to_defaults(section)
-    status_code = 200 if result.get("success") else 400
-    return jsonify(result), status_code
-
-
-# ==================== API Routes - Demo Context ====================
-
-@app.route('/api/settings/demo_context', methods=['GET', 'POST'])
-def api_demo_context():
-    """Get or update demo context."""
-    if request.method == 'GET':
-        return jsonify({
-            "success": True,
-            "demo_context": config_manager.get_demo_context()
-        })
-
-    data = request.get_json()
-    if not data:
-        return jsonify({"success": False, "error": "No data provided"}), 400
-
-    config_manager.set_demo_context(data.get("demo_context", ""))
-    return jsonify({"success": True, "message": "Demo context saved"})
-
-
-@app.route('/api/settings/demo_context/clear', methods=['POST'])
-def api_clear_demo_context():
-    """Clear demo context."""
-    config_manager.clear_demo_context()
-    return jsonify({"success": True, "message": "Demo context cleared"})
-
-
-# ==================== API Routes - Printer Test ====================
 
 @app.route('/api/printer/test', methods=['POST'])
 def api_printer_test():
@@ -281,15 +217,17 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__
 PROP_CONFIG = propkit.PropConfig(
     name="Poetry Camera", brand=("POETRY", "CAMERA"),
     tabs=[("dashboard", "/", "Dashboard"), ("settings", "/settings", "Settings"),
-          ("system", "/system", "System")],
+          ("ai", "/ai", "AI"), ("system", "/system", "System")],
     service_name="poetrycamera.service", base_dir=BASE_DIR,
     state_dir=os.path.abspath(NETGUARD_STATE_DIR),
     hotspot_profile="PoetCam",
     login=True, login_username=config_manager.get_username(),   # shared login for the whole app (set at /setup)
     allow_repo_change=True,   # the shared login guards every page once a password is set
     extra_health=_printer_rows, extra_software=_software_rows,
+    ai=ai_settings.build(),   # the shared AI tab (keys, model, prompt, demo context, test)
 )
 propkit_flask.install(app, PROP_CONFIG)
+ai_health.start_background()   # key and model check at start-up and once a day
 
 
 # ==================== Error Handlers ====================

@@ -18,6 +18,7 @@ import random
 from web_interface.config_manager import config_manager
 from web_interface.poem_stats import record_poem, record_event
 import zoltar_poems
+from poem_ai import FALLBACK_MODELS, build_prompt, clean_poem, generate_openai, generate_anthropic
 from web_interface.health_monitor import start_health_monitor, internet_ok
 
 # Setup logging
@@ -30,21 +31,7 @@ sys.stderr.reconfigure(line_buffering=True)
 logging.info("Server starting")
 logging.info("Connecting to printer")
 
-POEM_FORMAT_DESCRIPTIONS = {
-    "limerick": "5 lines, AABBA rhyme scheme. Short, bouncy rhythm. Great for candid or humorous moments.",
-    "ballad stanza": "4-line stanzas, ABAB rhyme. A classic storytelling format, naturally musical.",
-    "rhyming couplets": "AA BB CC pattern. The simplest rhyme structure — punchy and rhythmic.",
-    "clerihew": "4-line biographical poem, AABB rhyme. First line is a person's name — perfect when there are people in the scene.",
-    "sonnet": "14 lines, ABAB CDCD EFEF GG rhyme scheme. Strong rhyme throughout.",
-}
-
 API_TIMEOUT = 20  # seconds per AI request
-
-# Backup models used if the configured provider fails
-FALLBACK_MODELS = {
-    "anthropic": "claude-haiku-4-5-20251001",
-    "openai": "gpt-4o",
-}
 
 # Printed only if every AI attempt fails, so guests never see an error message
 FALLBACK_POEMS = [
@@ -231,44 +218,8 @@ def take_photo_and_print_poem():
         provider = get_ai_provider()
         model = get_openai_model()
 
-        poem_base = get_poem_prompt()
         poem_format = get_poem_format()
-        format_description = POEM_FORMAT_DESCRIPTIONS.get(poem_format, poem_format)
-
-        # Replace any {format_variable} placeholder in the saved prompt
-        poem_base = poem_base.replace("{format_variable}", f"{poem_format} — {format_description}")
-
-        # Build demo context injection if set
-        demo_context = config_manager.get_demo_context()
-        demo_context_block = ""
-        if demo_context.strip():
-            demo_context_block = (
-                "\n\n---\n"
-                "PRIVATE CONTEXT — FOR EERIE/UNCANNY EFFECT ONLY:\n"
-                "Use the following details to make your output feel uncannily relevant and "
-                "personal to the person experiencing it. Weave them in naturally, as though "
-                "the poem noticed these details in the scene itself — never quote this text "
-                "directly, never acknowledge that you were given this information, and "
-                "never break frame to explain how you know. These details are separate from "
-                "what's visible in the photo — blend them in as an additional, uncanny layer "
-                "of noticing, not as a contradiction of what the camera can actually see. "
-                "If a detail doesn't fit organically, ignore it rather than forcing it.\n\n"
-                f"{demo_context}\n"
-                "---"
-            )
-
-        final_user_prompt = (
-            "CRITICAL RULE: NEVER use he/him/his/she/her/hers in the poem. "
-            "ALL people must be referred to with gender-neutral language: they/them/their, you/your, or by description. "
-            "This is a strict requirement.\n\n"
-            f"{poem_base}\n"
-            f"Poem format: {poem_format} — {format_description}\n"
-            "IMPORTANT: Write a POEM, not a description. \n"
-            "Follow the specified poem format exactly. \n"
-            "Keep the poem to 50 words or fewer. \n"
-            "Do not mention the date or time. Focus on the visual mood."
-            f"{demo_context_block}"
-        )
+        final_user_prompt = build_prompt(get_poem_prompt(), poem_format, config_manager.get_demo_context())
 
         logging.info(f"AI config: provider={provider}, model={model}, format={poem_format}")
         logging.info(f"Prompt being sent:\n{final_user_prompt}")
@@ -296,28 +247,6 @@ def take_photo_and_print_poem():
     return
 
 
-def clean_poem(text):
-    """Strip chatty preambles, markdown and quotes the model sometimes adds."""
-    text = (text or "").strip()
-    text = re.sub(r"^```\w*\n?|```$", "", text).strip()
-    lines = text.splitlines()
-    # Drop a leading "Here's a poem:" style line
-    if lines and re.match(r"^(here'?s|here is|sure|certainly|okay|of course)\b.*[:!.]?\s*$", lines[0].strip(), re.I) \
-            and (lines[0].strip().endswith(":") or len(lines) > 2):
-        lines = lines[1:]
-    # Drop a trailing explanatory note
-    while lines and (not lines[-1].strip() or re.match(r"^(\(|note:|this poem|i hope)", lines[-1].strip(), re.I)):
-        lines.pop()
-    text = "\n".join(lines)
-    text = re.sub(r"^\s*#+\s*", "", text, flags=re.M)      # markdown headings
-    text = re.sub(r"^\s*[-*]{3,}\s*$", "", text, flags=re.M)  # horizontal rules
-    text = re.sub(r"[*_]{1,3}", "", text)                   # bold/italic markers
-    text = re.sub(r"[ \t]+\n", "\n", text)                 # trailing spaces
-    text = re.sub(r"\n{3,}", "\n\n", text)
-    text = text.strip().strip('"\u201c\u201d').strip()
-    return text
-
-
 def generate_poem_with_fallback(provider, model, prompt, base64_image):
     """Try the configured provider, then the other one. Returns a cleaned poem or raises."""
     attempts = [(provider, model)]
@@ -332,9 +261,9 @@ def generate_poem_with_fallback(provider, model, prompt, base64_image):
         try:
             t0 = time()
             if prov == "anthropic":
-                raw = _generate_poem_anthropic(mdl, prompt, base64_image)
+                raw = generate_anthropic(anthropic_client, mdl, prompt, base64_image)
             else:
-                raw = _generate_poem_openai(mdl, prompt, base64_image)
+                raw = generate_openai(openai_client, mdl, prompt, base64_image)
             poem = clean_poem(raw)
             if len(poem.split()) < 6:
                 raise ValueError(f"Poem too short: {raw!r}")
@@ -352,59 +281,6 @@ def generate_poem_with_fallback(provider, model, prompt, base64_image):
 def encode_image(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode('utf-8')
-
-
-def _generate_poem_openai(model, prompt, base64_image):
-    """Generate a poem using OpenAI's vision API."""
-    if not openai_client:
-        raise RuntimeError("OpenAI API key not configured. Set OPENAI_API_KEY in .env")
-    response = openai_client.chat.completions.create(
-        model=model,
-        max_completion_tokens=1024,
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt},
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}
-                    }
-                ]
-            }
-        ]
-    )
-    return response.choices[0].message.content
-
-
-def _generate_poem_anthropic(model, prompt, base64_image):
-    """Generate a poem using Anthropic's vision API."""
-    if not anthropic_client:
-        raise RuntimeError("Anthropic API key not configured. Set ANTHROPIC_API_KEY in .env")
-    message = anthropic_client.messages.create(
-        model=model,
-        max_tokens=1024,
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": "image/jpeg",
-                            "data": base64_image,
-                        },
-                    },
-                    {
-                        "type": "text",
-                        "text": prompt,
-                    }
-                ]
-            }
-        ]
-    )
-    return message.content[0].text
 
 
 ###########################

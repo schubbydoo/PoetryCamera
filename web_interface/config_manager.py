@@ -26,17 +26,10 @@ CONFIG_FILE = PROJECT_ROOT / "poetry_camera_config.json"
 DEFAULT_CONFIG = {
     "demo_context": "",
     "openai": {
-        "provider": "openai",  # Options: "openai", "anthropic"
-        "model": "gpt-4o-mini",
-        "poem_prompt": """Write a poem using the details, atmosphere, and emotion of this scene.
-Create a unique and elegant poem using specific details from the visual.
-IMPORTANT: Write a POEM, not a description.
-Keep it short (max 8 lines).
-Do not mention the date or time. Focus on the visual mood.
-Don't use the words 'unspoken' or 'unseen' or 'unheard' or 'untold'.
-Do not be corny or cliche'd.
-If there are people where gender is uncertain, use gender-neutral pronouns.""",
-        "poem_format": "couplet"
+        "provider": "anthropic",  # Options: "openai", "anthropic"
+        "model": "claude-sonnet-4-6",
+        "poem_prompt": "You are a poet with a camera's eye. You will receive an image and a poetry format.\nStudy the image closely. Notice the people first \u2014 their expressions, posture, what they might be feeling or doing together. Then take in the setting, the light, the colors, the objects, the mood of the moment.\nWrite a single poem in the specified format that brings this scene to life. Weave in specific details you actually see \u2014 don't be generic. If there are people, make them the heart of the poem. Give them warmth, humor, or tenderness depending on what the moment calls for.\nBe playful when the scene is playful. Be quiet when the scene is quiet. Match the energy of what you see. Aim for something the people in the photo would want to keep.\nDo not describe the image before the poem. Do not explain the poem after. Just the poem.\nFormat: {format_variable}",
+        "poem_format": "rhyming couplets"
     },
     "printer": {
         "type": "cat_printer",  # Options: "cat_printer", "network_printer", "both"
