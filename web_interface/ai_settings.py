@@ -76,32 +76,47 @@ def save(values, profile=None):
 
 
 # ---- test: one real poem from the most recent photo, with the settings on the page (not yet saved) ---------------
-def test(values, profile=None):
+IMAGE_TYPES = ("image/jpeg", "image/png", "image/gif", "image/webp")
+MAX_TEST_IMAGE = 5 * 1024 * 1024  # Anthropic's limit per image
+
+
+def test(values, profile=None, file=None):
+    """Write one poem. `file` ({"name", "type", "data"}) is a picture picked on the page; otherwise the last saved photo."""
     cur = dict(load(), **values)
     err = _validate(cur)
     if err:
         return {"ok": False, "text": "", "detail": err}
-    if not os.path.exists(IMAGE_PATH):
+    media_type, source = "image/jpeg", "the most recent saved photo"
+    if file:
+        media_type, source = file.get("type") or "", "the picture you chose"
+        if media_type not in IMAGE_TYPES:
+            return {"ok": False, "text": "", "detail": "Please choose a JPEG, PNG, GIF or WebP picture."}
+        if len(file["data"]) > MAX_TEST_IMAGE:
+            return {"ok": False, "text": "", "detail": "That picture is too large (up to 5 MB)."}
+    elif not os.path.exists(IMAGE_PATH):
         return {"ok": False, "text": "", "detail": "There is no saved photo yet. Take one with the camera button first."}
     keys = ai.EnvFile(ai_health.ENV_PATH).read()
     provider = cur["model_provider"]
     key = keys.get("OPENAI_API_KEY" if provider == "openai" else "ANTHROPIC_API_KEY", "")
     if not key:
         return {"ok": False, "text": "", "detail": "No %s key is set." % ("OpenAI" if provider == "openai" else "Anthropic")}
-    with open(IMAGE_PATH, "rb") as f:
-        image = base64.b64encode(f.read()).decode()
+    if file:
+        image = base64.b64encode(file["data"]).decode()
+    else:
+        with open(IMAGE_PATH, "rb") as f:
+            image = base64.b64encode(f.read()).decode()
     prompt = build_prompt(cur["poem_prompt"], cur["poem_format"], cur["demo_context"])
     try:
         if provider == "anthropic":
             import anthropic
-            raw = generate_anthropic(anthropic.Anthropic(api_key=key, timeout=30, max_retries=0), cur["model"], prompt, image)
+            raw = generate_anthropic(anthropic.Anthropic(api_key=key, timeout=30, max_retries=0), cur["model"], prompt, image, media_type)
         else:
             import openai
-            raw = generate_openai(openai.OpenAI(api_key=key, timeout=30, max_retries=0), cur["model"], prompt, image)
+            raw = generate_openai(openai.OpenAI(api_key=key, timeout=30, max_retries=0), cur["model"], prompt, image, media_type)
     except Exception as e:
         return {"ok": False, "text": "", "detail": "The AI answered with an error: %s" % str(e)[:200]}
     return {"ok": True, "text": clean_poem(raw),
-            "detail": "Written from the most recent saved photo (text only; nothing was printed or sent to Zoltar)."}
+            "detail": "Written from %s (text only; nothing was printed or sent to Zoltar)." % source}
 
 
 # ---- the propkit description -------------------------------------------------------------------------------------
@@ -110,7 +125,7 @@ def build():
         providers=[ai.Provider("openai", "OpenAI", "OPENAI_API_KEY"), ai.Provider("anthropic", "Anthropic", "ANTHROPIC_API_KEY")],
         sections=[
             ai.Section("models", "Models", help="Changes apply to the next photo.", fields=[
-                ai.Field("model", "", "model", role="see", providers=list(PROVIDER_IDS),
+                ai.Field("model", "", "model", role="see+think", providers=list(PROVIDER_IDS),
                          options_by_provider={"openai": OPENAI_OPTIONS, "anthropic": ANTHROPIC_OPTIONS},
                          help="Here: looks at the photo and writes the poem in one step.")]),
             ai.Section("prompt", "Prompt", fields=[
@@ -121,7 +136,8 @@ def build():
                        "what is going on. A few phrases are enough. Leave blank for plain poems.", fields=[
                 ai.Field("demo_context", "Demo context (optional)", "textarea", rows=4,
                          placeholder='e.g. "Halloween party, the host is dressed as a raven."')])],
-        load=load, save=save, defaults=defaults, test=test, test_label="Test: write a poem from the last photo",
+        load=load, save=save, defaults=defaults, test=test, test_label="Test: write a poem from a photo",
+        test_input="the most recent saved photo", test_accepts="image/*",
         health=ai_health.run_checks, last_health=ai_health.read_status,
         env_file=ai_health.ENV_PATH,
         intro="Which AI looks at the photo and writes the poem, and what it is asked to write. Keys are never shown in full.")

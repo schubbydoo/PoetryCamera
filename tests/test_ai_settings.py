@@ -68,6 +68,23 @@ class AdapterTests(unittest.TestCase):
         self.assertTrue(ok)
         self.assertEqual(ai_settings.load(), ai_settings.defaults())
 
+    def test_defaults_are_valid_options(self):
+        from types import SimpleNamespace
+        from propkit import ai
+        self.assertEqual(ai.AIPage(SimpleNamespace(ai=ai_settings.build())).check_defaults(), [])
+
+    def test_test_with_bad_picked_file(self):
+        base = {"model_provider": "openai", "model": "gpt-4o-mini"}
+        r = ai_settings.test(base, None, {"name": "x.txt", "type": "text/plain", "data": b"hi"})
+        self.assertFalse(r["ok"])
+        r = ai_settings.test(base, None, {"name": "x.jpg", "type": "image/jpeg", "data": b"x" * (6 * 1024 * 1024)})
+        self.assertFalse(r["ok"])
+        self.assertIn("too large", r["detail"])
+
+    def test_health_items_name_their_provider(self):
+        from web_interface import ai_health
+        self.assertEqual(ai_health._check("anthropic", "", "m", True)["provider"], "anthropic")
+
     def test_test_without_photo_or_key_never_raises(self):
         r = ai_settings.test({"model_provider": "openai", "model": "gpt-4o-mini"})
         self.assertFalse(r["ok"])

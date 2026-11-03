@@ -80,7 +80,7 @@ def clean_poem(text):
     return text
 
 
-def generate_openai(client, model, prompt, base64_image):
+def generate_openai(client, model, prompt, base64_image, media_type="image/jpeg"):
     """Generate a poem using OpenAI's vision API."""
     if not client:
         raise RuntimeError("OpenAI API key not configured. Set OPENAI_API_KEY in .env")
@@ -89,13 +89,13 @@ def generate_openai(client, model, prompt, base64_image):
         max_completion_tokens=1024,
         messages=[{"role": "user", "content": [
             {"type": "text", "text": prompt},
-            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}},
+            {"type": "image_url", "image_url": {"url": f"data:{media_type};base64,{base64_image}"}},
         ]}],
     )
     return response.choices[0].message.content
 
 
-def generate_anthropic(client, model, prompt, base64_image):
+def generate_anthropic(client, model, prompt, base64_image, media_type="image/jpeg"):
     """Generate a poem using Anthropic's vision API."""
     if not client:
         raise RuntimeError("Anthropic API key not configured. Set ANTHROPIC_API_KEY in .env")
@@ -103,7 +103,7 @@ def generate_anthropic(client, model, prompt, base64_image):
         model=model,
         max_tokens=1024,
         messages=[{"role": "user", "content": [
-            {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": base64_image}},
+            {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": base64_image}},
             {"type": "text", "text": prompt},
         ]}],
     )

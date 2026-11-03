@@ -28,8 +28,8 @@ PROVIDERS = {
 }
 
 
-def _item(name, status, detail):
-    return {"name": name, "status": status, "detail": detail}
+def _item(name, status, detail, provider=None):
+    return {"name": name, "status": status, "detail": detail, "provider": provider}
 
 
 def _env_keys():
@@ -43,8 +43,8 @@ def _check(provider, key, model, in_use):
     name = f"{label} key" if in_use else f"{label} key (backup)"
     if not key:
         if in_use:
-            return _item(name, FAIL, f"{env_var} is not set in .env")
-        return _item(name, UNKNOWN, f"{env_var} is not set (the backup provider is not available)")
+            return _item(name, FAIL, f"{env_var} is not set in .env", provider)
+        return _item(name, UNKNOWN, f"{env_var} is not set (the backup provider is not available)", provider)
     try:
         if provider == "openai":
             r = requests.get(f"https://api.openai.com/v1/models/{model}",
@@ -53,14 +53,14 @@ def _check(provider, key, model, in_use):
             r = requests.get(f"https://api.anthropic.com/v1/models/{model}",
                              headers={"x-api-key": key, "anthropic-version": "2023-06-01"}, timeout=TIMEOUT)
     except requests.exceptions.RequestException as e:
-        return _item(name, UNKNOWN, f"Could not reach {label}: {type(e).__name__}")
+        return _item(name, UNKNOWN, f"Could not reach {label}: {type(e).__name__}", provider)
     if r.status_code == 200:
-        return _item(name, OK, f"Key accepted; model {model} available")
+        return _item(name, OK, f"Key accepted; model {model} available", provider)
     if r.status_code in (401, 403) and "model" not in r.text.lower():
-        return _item(name, FAIL if in_use else UNKNOWN, f"{label} key REJECTED (HTTP {r.status_code})")
+        return _item(name, FAIL if in_use else UNKNOWN, f"{label} key REJECTED (HTTP {r.status_code})", provider)
     if r.status_code in (403, 404):
-        return _item(name, FAIL if in_use else UNKNOWN, f"Model '{model}' is not available to this key (HTTP {r.status_code})")
-    return _item(name, UNKNOWN, f"{label}: HTTP {r.status_code}")
+        return _item(name, FAIL if in_use else UNKNOWN, f"Model '{model}' is not available to this key (HTTP {r.status_code})", provider)
+    return _item(name, UNKNOWN, f"{label}: HTTP {r.status_code}", provider)
 
 
 def run_checks(deep=False, write=True):
