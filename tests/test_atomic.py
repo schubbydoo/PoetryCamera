@@ -132,5 +132,31 @@ class AtomicTests(unittest.TestCase):
         self.assertIn(str(n), atomic_io.read_json(zoltar_poems.STATE_PATH))
 
 
+class LostUpdateTests(unittest.TestCase):
+    def test_stale_copy_does_not_undo_other_process_change(self):
+        tmp = tempfile.mkdtemp()
+        path = Path(tmp) / "cfg.json"
+        base = {"auth": {"secret_key": "k", "password_hash": "h"}}
+        path.write_text(json.dumps(base))
+
+        def mk():
+            cm = ConfigManager.__new__(ConfigManager)
+            cm.config_file = path
+            cm._read_failed = False
+            cm._disk = None
+            cm.reload()
+            return cm
+
+        a, b = mk(), mk()
+        a.config["openai"]["model"] = "model-from-a"
+        a._save_config()
+        b.config["printer"]["cat_printer"]["name"] = "name-from-b"     # b is stale: never saw a's change
+        b._save_config()
+        final = json.loads(path.read_text())
+        self.assertEqual(final["openai"]["model"], "model-from-a")
+        self.assertEqual(final["printer"]["cat_printer"]["name"], "name-from-b")
+        self.assertEqual(b.config["openai"]["model"], "model-from-a")   # b picked it up too
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -7,6 +7,8 @@ Handles persistent storage of settings including:
 - User credentials
 """
 
+import copy
+import fcntl
 import json
 import os
 import hashlib
@@ -56,6 +58,23 @@ DEFAULT_CONFIG = {
 }
 
 
+_MISSING = object()
+
+
+def _apply_changes(base: dict, old: dict, new: dict):
+    """Apply to `base` only what differs between `old` (as last loaded/saved) and `new` (this process's edits)."""
+    for k in set(old) | set(new):
+        o, n = old.get(k, _MISSING), new.get(k, _MISSING)
+        if o == n:
+            continue
+        if n is _MISSING:
+            base.pop(k, None)
+        elif isinstance(o, dict) and isinstance(n, dict) and isinstance(base.get(k), dict):
+            _apply_changes(base[k], o, n)
+        else:
+            base[k] = copy.deepcopy(n)
+
+
 class ConfigManager:
     """Manages Poetry Camera configuration."""
     
@@ -68,6 +87,7 @@ class ConfigManager:
             self._read_failed = True
         else:
             self._read_failed = False
+        self._disk = copy.deepcopy(self.config) if not self._read_failed else None
         self._ensure_defaults()
     
     def _load_config(self, retries: int = 0) -> Optional[Dict[str, Any]]:
@@ -97,6 +117,7 @@ class ConfigManager:
             return
         self.config = data
         self._read_failed = False
+        self._disk = copy.deepcopy(data)
         self._ensure_defaults()
     
     def _save_config(self):
@@ -105,7 +126,24 @@ class ConfigManager:
             if getattr(self, "_read_failed", False):
                 logger.error("Not saving: the config file could not be read, so it is not overwritten")
                 return
-            write_json(self.config_file, self.config, indent=2)
+            # Read-modify-write under a lock: apply only this process's own edits on top of the file as it is now,
+            # so a save from a stale copy cannot undo a change another process made meanwhile.
+            lock_path = str(self.config_file) + ".lock"
+            with open(lock_path, 'a') as lock:
+                fcntl.flock(lock, fcntl.LOCK_EX)
+                disk = self._load_config(retries=2)
+                if disk is None:
+                    logger.error("Not saving: the config file could not be read, so it is not overwritten")
+                    return
+                base = getattr(self, "_disk", None)
+                if base is None or not disk:
+                    merged = copy.deepcopy(self.config)
+                else:
+                    merged = copy.deepcopy(disk)
+                    _apply_changes(merged, base, self.config)
+                write_json(self.config_file, merged, indent=2)
+                self.config = merged
+                self._disk = copy.deepcopy(merged)
             logger.info("Configuration saved")
         except Exception as e:
             logger.error(f"Error saving config: {e}")
