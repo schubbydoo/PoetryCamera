@@ -4,6 +4,7 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-save-printer').addEventListener('click', savePrinterSettings);
+    document.getElementById('btn-test-print').addEventListener('click', testPrint);
     document.getElementById('btn-save-zoltar').addEventListener('click', saveZoltarSettings);
     loadZoltarSettings();
 
@@ -63,6 +64,25 @@ async function savePrinterSettings() {
         }
     } catch (error) {
         showNotification('Error saving settings: ' + error.message, 'danger');
+    } finally {
+        setButtonLoading(btn, false);
+    }
+}
+
+// ==================== Test Print ====================
+
+async function testPrint() {
+    const btn = document.getElementById('btn-test-print');
+    setButtonLoading(btn, true);
+    try {
+        const result = await apiCall('/api/printer/test', 'POST');
+        if (result.success) {
+            showNotification('Test print sent to printer!', 'success');
+        } else {
+            showNotification(result.error || 'Failed to send test print', 'danger');
+        }
+    } catch (error) {
+        showNotification(error.message, 'danger');
     } finally {
         setButtonLoading(btn, false);
     }

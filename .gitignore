@@ -120,3 +120,4 @@ netguard_state/
 zoltar_poems.json
 zoltar_poem_state.json
 ai_health.json
+logs/

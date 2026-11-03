@@ -16,7 +16,8 @@ from flask import (
 from .wifi_manager import wifi_manager
 from .system_manager import system_manager
 from .config_manager import config_manager
-from .poem_stats import get_summary as get_poem_stats
+from .poem_stats import backfill_events, EVENTS_DIR
+from propkit.stats import StatsSpec
 from .health_monitor import NETGUARD_STATE_DIR
 
 # Shared UI kit (https://github.com/schubbydoo/propkit), cloned to ~/propkit on the Pi
@@ -32,7 +33,7 @@ app.secret_key = config_manager.get_secret_key()
 
 # ==================== Authentication ====================
 
-ACTIVE_TAB = {'home': 'dashboard', 'settings': 'settings'}
+ACTIVE_TAB = {'settings': 'settings'}
 
 
 @app.context_processor
@@ -47,46 +48,6 @@ def inject_globals():
 
 
 # ==================== Page Routes ====================
-
-@app.route('/')
-def home():
-    """Dashboard/home page."""
-    # Get device status
-    wifi_status = wifi_manager.get_current_connection()
-    system_info = system_manager.get_system_info()
-    printer_config = config_manager.get_printer_config()
-    
-    # Try to get printer status from cat_printer service
-    printer_status = {"connected": False, "ready": False, "status": {}, "service_running": False}
-    try:
-        response = requests.get("http://127.0.0.1:5002", timeout=1)
-        if response.ok:
-            data = response.json()
-            printer_status = {
-                "connected": data.get("ready", False),
-                "ready": data.get("ready", False),
-                "address": data.get("address"),
-                "status": data.get("status", {}),
-                "transmit": data.get("transmit", False),
-                "service_running": True
-            }
-    except requests.exceptions.ConnectionError:
-        # Service not running
-        printer_status["service_running"] = False
-    except requests.exceptions.Timeout:
-        # Service might be busy
-        printer_status["service_running"] = True
-    except Exception:
-        pass
-    
-    return render_template('index.html',
-        wifi_status=wifi_status,
-        system_info=system_info,
-        printer_config=printer_config,
-        printer_status=printer_status,
-        poem_stats=get_poem_stats()
-    )
-
 
 @app.route('/settings')
 def settings():
@@ -205,14 +166,6 @@ def _printer_rows():
         return [{"k": "Printer", "v": "Printer service not responding", "color": "bad"}]
 
 
-def _software_rows():
-    try:
-        today = get_poem_stats().get("today", 0)
-    except Exception:
-        today = "?"
-    return [{"k": "Poems today", "v": str(today), "color": None}]
-
-
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 PROP_CONFIG = propkit.PropConfig(
     name="Poetry Camera", brand=("POETRY", "CAMERA"),
@@ -223,10 +176,13 @@ PROP_CONFIG = propkit.PropConfig(
     hotspot_profile="PoetCam",
     login=True, login_username=config_manager.get_username(),   # shared login for the whole app (set at /setup)
     allow_repo_change=True,   # the shared login guards every page once a password is set
-    extra_health=_printer_rows, extra_software=_software_rows,
+    extra_health=_printer_rows,
+    stats=StatsSpec(noun="poem", outcomes={"ok": ("Written", "good"), "fallback": ("Canned poem (AI failed)", "warn")}, show_text=False),
+    events_dir=EVENTS_DIR, dashboard_path="/",
     ai=ai_settings.build(),   # the shared AI tab (keys, model, prompt, demo context, test)
 )
 propkit_flask.install(app, PROP_CONFIG)
+backfill_events()   # one-time copy of the old poem log into the shared activity events (safe to repeat)
 ai_health.start_background()   # key and model check at start-up and once a day
 
 
@@ -246,7 +202,7 @@ def server_error(e):
     if request.path.startswith('/api/'):
         return jsonify({"success": False, "error": "Internal server error"}), 500
     flash('An unexpected error occurred.', 'danger')
-    return redirect(url_for('home'))
+    return redirect('/')
 
 
 # ==================== Main ====================
