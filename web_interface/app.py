@@ -17,13 +17,13 @@ from .wifi_manager import wifi_manager
 from .system_manager import system_manager
 from .config_manager import config_manager
 from .poem_stats import backfill_events, EVENTS_DIR
-from propkit.stats import StatsSpec
 from .health_monitor import NETGUARD_STATE_DIR
 
 # Shared UI kit (https://github.com/schubbydoo/propkit), cloned to ~/propkit on the Pi
 sys.path.insert(0, os.path.expanduser("~/propkit"))
 import propkit
 from propkit import flask_app as propkit_flask
+from propkit.stats import StatsSpec
 from . import ai_health, ai_settings
 
 # Create Flask app
