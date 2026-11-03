@@ -43,14 +43,17 @@ _ble_thread = None
 def _load_printer_config():
     """Load printer name and MAC from the app config file."""
     config_path = os.path.join(os.path.dirname(__file__), "../../poetry_camera_config.json")
-    try:
-        with open(os.path.abspath(config_path)) as f:
-            cfg = json.load(f)
-        cat_cfg = cfg.get("printer", {}).get("cat_printer", {})
-        return cat_cfg.get("name", "MX06"), cat_cfg.get("mac_address", "")
-    except Exception as e:
-        logging.warning(f"Could not load printer config: {e}, using defaults")
-        return "MX06", ""
+    for attempt in range(3):   # a writer may be replacing the file; try again before using defaults
+        try:
+            with open(os.path.abspath(config_path)) as f:
+                cfg = json.load(f)
+            cat_cfg = cfg.get("printer", {}).get("cat_printer", {})
+            return cat_cfg.get("name", "MX06"), cat_cfg.get("mac_address", "")
+        except Exception as e:
+            logging.warning(f"Could not load printer config: {e}")
+            time.sleep(0.3)
+    logging.warning("Using default printer settings")
+    return "MX06", ""
 
 
 def get_printer():

@@ -12,8 +12,12 @@ import os
 import hashlib
 import secrets
 import logging
+import sys
 from pathlib import Path
 from typing import Optional, Dict, Any
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from atomic_io import write_json  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -57,29 +61,51 @@ class ConfigManager:
     
     def __init__(self):
         self.config_file = CONFIG_FILE
-        self.config = self._load_config()
+        self.config = self._load_config(retries=3)
+        if self.config is None:
+            logger.error("Config unreadable at start-up; using defaults WITHOUT saving them over the file")
+            self.config = {}
+            self._read_failed = True
+        else:
+            self._read_failed = False
         self._ensure_defaults()
     
-    def _load_config(self) -> Dict[str, Any]:
-        """Load configuration from file."""
-        try:
-            if self.config_file.exists():
+    def _load_config(self, retries: int = 0) -> Optional[Dict[str, Any]]:
+        """Load configuration from file. {} if the file does not exist; None if it is empty or unparseable."""
+        import time
+        for attempt in range(retries + 1):
+            try:
+                if not self.config_file.exists():
+                    return {}
                 with open(self.config_file, 'r') as f:
-                    return json.load(f)
-        except Exception as e:
-            logger.error(f"Error loading config: {e}")
-        return {}
+                    data = json.load(f)
+                if isinstance(data, dict):
+                    return data
+                raise ValueError("config is not a JSON object")
+            except Exception as e:
+                logger.error(f"Error loading config: {e}")
+                if attempt < retries:
+                    time.sleep(0.2)
+        return None
 
     def reload(self):
-        """Reload configuration from disk. Call this to pick up changes made by other processes."""
-        self.config = self._load_config()
+        """Reload configuration from disk. Call this to pick up changes made by other processes.
+        If the file cannot be read right now, keep the config already in memory."""
+        data = self._load_config(retries=2)
+        if data is None:
+            logger.error("Config unreadable; keeping the previous settings")
+            return
+        self.config = data
+        self._read_failed = False
         self._ensure_defaults()
     
     def _save_config(self):
         """Save configuration to file."""
         try:
-            with open(self.config_file, 'w') as f:
-                json.dump(self.config, f, indent=2)
+            if getattr(self, "_read_failed", False):
+                logger.error("Not saving: the config file could not be read, so it is not overwritten")
+                return
+            write_json(self.config_file, self.config, indent=2)
             logger.info("Configuration saved")
         except Exception as e:
             logger.error(f"Error saving config: {e}")

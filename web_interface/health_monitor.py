@@ -17,6 +17,7 @@ import threading
 import time
 from datetime import datetime
 
+import atomic_io
 from .poem_stats import record_event
 
 STATE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "health_state.json")
@@ -26,8 +27,7 @@ INTERNET_HOST = ("api.anthropic.com", 443)
 
 def _write_state(clean):
     try:
-        with open(STATE_PATH, "w") as f:
-            json.dump({"last_seen": datetime.now().isoformat(timespec="seconds"), "clean": clean}, f)
+        atomic_io.write_json(STATE_PATH, {"last_seen": datetime.now().isoformat(timespec="seconds"), "clean": clean})
     except Exception:
         pass
 

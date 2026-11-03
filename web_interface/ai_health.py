@@ -12,6 +12,7 @@ from datetime import datetime
 
 import requests
 
+import atomic_io
 from poem_ai import FALLBACK_MODELS
 from .config_manager import config_manager
 
@@ -77,10 +78,7 @@ def run_checks(deep=False, write=True):
               "overall": overall, "items": items}
     if write:
         try:
-            tmp = STATUS_PATH + ".tmp"
-            with open(tmp, "w") as f:
-                json.dump(result, f)
-            os.replace(tmp, STATUS_PATH)
+            atomic_io.write_json(STATUS_PATH, result)
         except OSError:
             pass
     return result

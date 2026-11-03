@@ -17,6 +17,8 @@ import time
 
 import requests
 
+import atomic_io
+
 BASE = os.path.dirname(os.path.abspath(__file__))
 SETTINGS_PATH = os.path.join(BASE, "zoltar_poems.json")
 STATE_PATH = os.path.join(BASE, "zoltar_poem_state.json")
@@ -30,22 +32,32 @@ DEFAULTS = {"enabled": False, "address": "http://192.168.128.148:8000", "token":
 _lock = threading.Lock()
 
 
+_last_good = None   # the last settings read successfully: kept if the file is ever empty or unreadable
+
+
 def get_settings():
+    global _last_good
     s = dict(DEFAULTS)
     try:
         with open(SETTINGS_PATH) as f:
             s.update({k: v for k, v in json.load(f).items() if k in DEFAULTS})
+        _last_good = dict(s)
     except FileNotFoundError:
         pass
     except Exception:
-        logging.exception("Zoltar settings unreadable; feature off")
+        logging.exception("Zoltar settings unreadable; keeping the previous ones")
+        if _last_good is not None:
+            return dict(_last_good)
         s["enabled"] = False
+        s["_unreadable"] = True
     return s
 
 
 def save_settings(data):
     """Update switch/address; the token only changes when a non-empty one is given."""
     s = get_settings()
+    if s.pop("_unreadable", False):
+        raise RuntimeError("The saved Zoltar settings could not be read; not overwriting them. Try again.")
     if "enabled" in data:
         s["enabled"] = bool(data["enabled"])
     if "address" in data:
@@ -55,11 +67,7 @@ def save_settings(data):
         s["address"] = addr
     if str(data.get("token") or "").strip():
         s["token"] = str(data["token"]).strip()
-    tmp = SETTINGS_PATH + ".tmp"
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w") as f:
-        json.dump(s, f)
-    os.replace(tmp, SETTINGS_PATH)
+    atomic_io.write_json(SETTINGS_PATH, s, mode=0o600)
     return s
 
 
@@ -81,10 +89,7 @@ def pick_number(now=None, rng=random):
         n = rng.choice(free) if free else min(used, key=used.get)
         used[n] = now
         try:
-            tmp = STATE_PATH + ".tmp"
-            with open(tmp, "w") as f:
-                json.dump({str(k): v for k, v in used.items()}, f)
-            os.replace(tmp, STATE_PATH)
+            atomic_io.write_json(STATE_PATH, {str(k): v for k, v in used.items()}, mode=0o600)
         except Exception:
             logging.exception("Could not save lucky-number state")
         return n
