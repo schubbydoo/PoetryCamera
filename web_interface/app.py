@@ -25,6 +25,7 @@ import propkit
 from propkit import flask_app as propkit_flask
 from propkit.stats import StatsSpec
 from . import ai_health, ai_settings
+from .capabilities import capabilities
 
 # Create Flask app
 app = Flask(__name__)
@@ -186,6 +187,7 @@ PROP_CONFIG = propkit.PropConfig(
     login=True, login_username=config_manager.get_username(),   # shared login for the whole app (set at /setup)
     allow_repo_change=True,   # the shared login guards every page once a password is set
     extra_health=_printer_rows, banner=_banner,
+    capabilities=capabilities, app_version=system_manager.get_version(),
     stats=StatsSpec(noun="poem", outcomes={"ok": ("Written", "good"), "fallback": ("Canned poem (AI failed)", "warn")}, show_text=False),
     events_dir=EVENTS_DIR, dashboard_path="/",
     ai=ai_settings.build(),   # the shared AI tab (keys, model, prompt, demo context, test)
